@@ -12,11 +12,11 @@
         └───index.js
 ```
 
-# Para correr o servidor: 
+### Para correr o servidor: 
 ```npm run dev <=> nodemon src/dbproj.js```
 
-# Packages para instalar: 
-.pg 
+### Packages para instalar: 
+* pg 
 ```npm i pg```
-.express
+* express
 ```npm i express```
