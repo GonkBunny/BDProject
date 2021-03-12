@@ -1,17 +1,22 @@
 # BDProject
 
+'''
+├───database
+├──dbproj.js -> main
+└───src
+    ├───controllers -> functions (Brain), multiple js files if needed where we store functions
+    │   └───index.controller.js 
+    ├───models -> Classes
+    │   └───User.js
+    └───routes -> rotas no webbrowser disponiveis e que são encaminhadas para o brain
+        └───index.js
+'''
 
-|
-|------------------------------------------------------------------------
-|           |                                   |                       |
-|           database- sql code                  src-nodejs code         node_modules - packages necessarias
-|                                               |
-|                                      ---------|-----------------------------------------------------------------------
-|                                     |                                       |                                        |
-|                                  controllers- funções de codigo             models - classes           routes - caminhos disponiveis na web
+#Para correr o servidor: 
+'''npm run dev <=> nodemon src/dbproj.js'''
 
-
-
-para correr o servidor: npm run dev <=> nodemon src/dbproj.js
-
-packages para instalar - pg e express => npm i pg, npm i express
+#Packages para instalar: 
+-pg 
+'''npm i pg'''
+-express
+''' npm i express'''
