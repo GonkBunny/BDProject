@@ -11,8 +11,9 @@ router.post('/dbproj/leilao', criarLeilao);
 router.put('/dbproj/leilao/:leilaoId',updateLeilao);
 
 //Vários Leilões
-router.get('/dbptoj/leiloes/:keyword',getLeiloesByKeyword);
+
 router.get('/dbproj/leiloes',getLeiloes);
+router.get('/dbproj/leiloes/:keyword',getLeiloesByKeyword);
 
 module.exports = router;
 

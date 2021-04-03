@@ -61,7 +61,11 @@ const createUser = async (req,res)=>{
       var max;
       try {
             max = await pool.query('SELECT max(userid) FROM utilizador;');
-            max = BigInt(max.rows[0].max);
+            if(max.rows){
+                  max = BigInt(max.rows[0].max);
+            }else{
+                  max = BigInt(0);
+            }
       } catch (error) {
             console.log(error);
             max = BigInt(0);
@@ -109,24 +113,95 @@ const Login = async (req,res)=>{
 
 const criarLeilao = async (req, res) => {
       var max;
+      
       try {
-            max = await pool.query('SELECT max(userid) FROM utilizador;');
-            max = BigInt(max.rows[0].max);
+            const {titulo,descricao,artigoid,minpreco,datacomeco,datafim} = req.body;
+            req.userid = verifyJWT(req,res);
+            
+            if(req.userid>=0){
+                  try {
+                        
+                  
+                        max = await pool.query('SELECT max(leilaoid) FROM leilao;');
+                        
+                        if(max.rows){
+                              max = BigInt(max.rows[0].max)+BigInt(1);
+                        }else{
+                              max = BigInt(0);
+                        }
+                  } catch (error) {
+                        max = BigInt(0);     
+                  }
+                  try {
+                        
+                        const success = await pool.query('INSERT INTO leilao (leilaoid,titulo,descricao,artigoid,minpreco,datacomeco,datafim,utilizador_userid,cancelar) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,DEFAULT);',[max,titulo,descricao,artigoid,minpreco,datacomeco,datafim,req.userid]);
+                        console.log(success);
+                  } catch (error) {
+                        return res.json({erro:error});
+                        
+                  }
+                  res.json({leilaoId:max});
+            }else if(req.userid == -1){
+                  return res.json({auth: false, message: 'No token provided.'})
+            }else if(req.userid == -2){
+                  return res.json({auth: false, message: 'Failed to authenticate token.'})
+            }
+            
       } catch (error) {
             console.log(error);
-            max = BigInt(0);
+            return res.json({erro:error});
+            
       }
       
-      res.send("Leilao criado");
+      
 }
 
+
+const getLeilaoByID = async (req, res)=>{
+      //Meter a verificação que fez login
+      const number = BigInt(req.params.leilaoId);
+      const response = await pool.query('SELECT * FROM leilao WHERE leilaoid = $1',[number]);
+      res.json(response);
+}
+
+
+
+
+
+
 const getLeiloesByKeyword = async (req,res) =>{
-      res.send(req.params.keyword);
+      //Meter a verificação que fez login
+      req.params.keyword = req.params.keyword.split("&").join(" ");
+      var number = parseInt(req.params.keyword);
+      if(isNaN(number)){
+            number = -1;
+      }
+      number = BigInt(number)
+      const response = await pool.query('SELECT leilaoid, descricao FROM leilao WHERE descricao=$1 OR artigoid=$2',[req.params.keyword,number])
+      return res.json(response.rows);
 }
 
 const updateLeilao = async (req,res) =>{
-      res.send(req.params);
+      return res.send(req.params);
 }
+
+const getStatistic = async (req, res)=>{
+
+      req.userid = verifyJWT(req,res);
+            
+            if(req.userid>=0){
+                  const user = await pool.query('SELECT admin FROM utilizador WHERE userid=$1',[req.userid]);
+                  if(user.rows[0].admin){
+                        
+                  }
+            }else if(req.userid == -1){
+                  return res.json({auth: false, message: 'No token provided.'})
+            }else if(req.userid == -2){
+                  return res.json({auth: false, message: 'Failed to authenticate token.'})
+            }
+
+}
+
 
 module.exports ={
       createUser,
@@ -134,5 +209,6 @@ module.exports ={
       Login,
       criarLeilao,
       getLeiloesByKeyword,
-      updateLeilao
+      updateLeilao,
+      getLeilaoByID
 }
