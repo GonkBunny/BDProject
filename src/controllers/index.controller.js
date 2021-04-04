@@ -156,6 +156,16 @@ const criarLeilao = async (req, res) => {
       
 }
 
+const makeLicitation = async (req, res) =>{
+      const leilaoid = BigInt(req.params.leilaoId);
+      const licitacao = Number(req.params.licitacao);
+      req.userid = verifyJWT(req,res);
+            
+      if(req.userid>=0){
+            
+      }
+
+}
 
 const getLeilaoByID = async (req, res)=>{
       //Meter a verificação que fez login

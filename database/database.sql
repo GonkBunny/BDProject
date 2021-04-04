@@ -1,10 +1,8 @@
-CREATE DATABASE project;
-
 CREATE TABLE leilao (
 	leilaoid		 BIGINT,
 	titulo		 VARCHAR(512) UNIQUE NOT NULL,
 	descricao	 VARCHAR(512),
-	artigoid		 BIGINT UNIQUE NOT NULL,
+	artigoid		 BIGINT NOT NULL,
 	minpreco		 DOUBLE PRECISION NOT NULL,
 	datacomeco	 TIMESTAMP NOT NULL,
 	cancelar		 BOOL DEFAULT false,
@@ -25,7 +23,7 @@ CREATE TABLE utilizador (
 
 CREATE TABLE licitacao (
 	datadalicitacao	 TIMESTAMP NOT NULL,
-	precodelicitacao	 BIGINT NOT NULL,
+	precodelicitacao	 DOUBLE PRECISION NOT NULL,
 	utilizador_userid BIGINT,
 	leilao_leilaoid	 BIGINT NOT NULL,
 	PRIMARY KEY(utilizador_userid)
@@ -52,4 +50,3 @@ ALTER TABLE licitacao ADD CONSTRAINT licitacao_fk2 FOREIGN KEY (leilao_leilaoid)
 ALTER TABLE mural ADD CONSTRAINT mural_fk1 FOREIGN KEY (leilao_leilaoid) REFERENCES leilao(leilaoid);
 ALTER TABLE mural ADD CONSTRAINT mural_fk2 FOREIGN KEY (utilizador_userid) REFERENCES utilizador(userid);
 ALTER TABLE mensagem ADD CONSTRAINT mensagem_fk1 FOREIGN KEY (utilizador_userid) REFERENCES utilizador(userid);
-
