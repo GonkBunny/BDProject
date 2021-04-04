@@ -135,12 +135,12 @@ const criarLeilao = async (req, res) => {
                   try {
                         
                         const success = await pool.query('INSERT INTO leilao (leilaoid,titulo,descricao,artigoid,minpreco,datacomeco,datafim,utilizador_userid,cancelar) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,DEFAULT);',[max,titulo,descricao,artigoid,minpreco,datacomeco,datafim,req.userid]);
-                        console.log(success);
+                        return res.json({leilaoId:parseInt(max)});
                   } catch (error) {
                         return res.json({erro:error});
                         
                   }
-                  res.json({leilaoId:max});
+                  
             }else if(req.userid == -1){
                   return res.json({auth: false, message: 'No token provided.'})
             }else if(req.userid == -2){
@@ -161,7 +161,7 @@ const getLeilaoByID = async (req, res)=>{
       //Meter a verificação que fez login
       const number = BigInt(req.params.leilaoId);
       const response = await pool.query('SELECT * FROM leilao WHERE leilaoid = $1',[number]);
-      res.json(response);
+      res.json(response.rows);
 }
 
 
@@ -192,7 +192,7 @@ const getStatistic = async (req, res)=>{
             if(req.userid>=0){
                   const user = await pool.query('SELECT admin FROM utilizador WHERE userid=$1',[req.userid]);
                   if(user.rows[0].admin){
-                        
+                        const answer = await pool.query('SELECT ')
                   }
             }else if(req.userid == -1){
                   return res.json({auth: false, message: 'No token provided.'})

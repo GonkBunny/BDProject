@@ -1,0 +1,37 @@
+10 users com maior numero de leiloes criados
+SELECT userid from utilizador, leilao
+GROUP BY userid,utilizador_userid having userid = utilizador_userid
+order by count(leilaoid) desc
+limit 10;
+
+
+
+psql  -h host.docker.internal -p 5432 -d project -U postgres
+
+Caminho para escrever no mural
+post
+dbproj/leilao/{leilaoId}/mural
+req
+{
+      authToken
+      text
+}
+res
+{
+      success
+}
+
+
+
+
+Caminho para ver as mensagens
+get
+dbproj/user/caixaDeMensagem
+req:
+{
+      authToken:
+}
+res:
+{
+      todas as mensagens
+}

@@ -2,8 +2,10 @@
 
 ```
 ├───database
-├──dbproj.js -> main
+│
 └───src
+    ├──dbproj.js -> main
+    │
     ├───controllers -> functions (Brain), multiple js files if needed where we store functions
     │   └───index.controller.js 
     ├───models -> Classes
