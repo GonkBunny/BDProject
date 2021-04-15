@@ -35,13 +35,15 @@ function verifyJWT(req,res){
 const getLeiloes = async (req,res)=>{
       //Ver autenticação se está logged in
       //Buscar todos os Leiloes ativos com o pg
+
+      //Buscar a nova
       try{
             
             
             req.userid = verifyJWT(req,res);
             
             if(req.userid>=0){
-                  const response = await pool.query('SELECT * FROM leilao;')
+                  const response = await pool.query('SELECT leilao.leilaoid, descricao_titulo.titulo, descricao_titulo.descricao, leilao.artigoid, leilao.datacomeco, leilao.datafim, leilao.utilizador_userid  FROM leilao,descricao_titulo WHERE descricao_titulo.leilao_leilaoid = leilao.leilaoid GROUP BY descricao_titulo.leilao_leilaoid,leilao.leilaoid HAVING MAX(datademudanca)=datademudanca;')
                   res.send(response.rows);
             }else if(req.userid == -1){
                   return res.json({auth: false, message: 'No token provided.'})
@@ -112,6 +114,7 @@ const Login = async (req,res)=>{
 }
 
 const criarLeilao = async (req, res) => {
+      //Por titulo
       var max;
       
       try {
@@ -133,10 +136,14 @@ const criarLeilao = async (req, res) => {
                         max = BigInt(0);     
                   }
                   try {
-                        
-                        const success = await pool.query('INSERT INTO leilao (leilaoid,titulo,descricao,artigoid,minpreco,datacomeco,datafim,utilizador_userid,cancelar) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,DEFAULT);',[max,titulo,descricao,artigoid,minpreco,datacomeco,datafim,req.userid]);
+                        const timeStamp = new Date();
+                        await pool.query('Begin Transaction;')
+                        await pool.query('INSERT INTO leilao (leilaoid,artigoid,minpreco,datacomeco,datafim,utilizador_userid,cancelar) VALUES ($1,$2,$3,$4,$5,$6,DEFAULT);',[max,artigoid,minpreco,datacomeco,datafim,req.userid]);
+                        await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid) VALUES ($1,$2,$3,$4);',[descricao,titulo,timeStamp,max]);
+                        await pool.query('Commit;')
                         return res.json({leilaoId:parseInt(max)});
                   } catch (error) {
+                        console.log(error);
                         return res.json({erro:error});
                         
                   }
@@ -160,9 +167,9 @@ const makeLicitation = async (req, res) =>{
       const leilaoid = BigInt(req.params.leilaoId);
       const licitacao = Number(req.params.licitacao);
       req.userid = verifyJWT(req,res);
+      const date = new Date();
             
       if(req.userid>=0){
-            
       }
 
 }
@@ -170,7 +177,7 @@ const makeLicitation = async (req, res) =>{
 const getLeilaoByID = async (req, res)=>{
       //Meter a verificação que fez login
       const number = BigInt(req.params.leilaoId);
-      const response = await pool.query('SELECT * FROM leilao WHERE leilaoid = $1',[number]);
+      const response = await pool.query('SELECT leilao.leilaoid, descricao_titulo.titulo, descricao_titulo.descricao, leilao.artigoid, leilao.datacomeco, leilao.datafim, leilao.utilizador_userid  FROM leilao,descricao_titulo WHERE descricao_titulo.leilao_leilaoid = leilao.leilaoid AND leilaoid = $1 GROUP BY descricao_titulo.leilao_leilaoid,leilao.leilaoid HAVING MAX(datademudanca)=datademudanca;',[number]);
       res.json(response.rows);
 }
 
@@ -187,14 +194,16 @@ const getLeiloesByKeyword = async (req,res) =>{
             number = -1;
       }
       number = BigInt(number)
-      const response = await pool.query('SELECT leilaoid, descricao FROM leilao WHERE descricao=$1 OR artigoid=$2',[req.params.keyword,number])
+      const response = await pool.query('SELECT leilao.leilaoid, descricao_titulo.descricao FROM leilao, descricao_titulo WHERE leilao.leilaoid = descricao_titulo.leilao_leilaoid AND (descricao_titulo.descricao=$1 OR artigoid=$2)',[req.params.keyword,number])
       return res.json(response.rows);
 }
 
+//acabar
 const updateLeilao = async (req,res) =>{
       return res.send(req.params);
 }
 
+//acabar 
 const getStatistic = async (req, res)=>{
 
       req.userid = verifyJWT(req,res);

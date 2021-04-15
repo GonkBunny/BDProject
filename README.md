@@ -22,3 +22,6 @@
 ```npm i pg```
 * express
 ```npm i express```
+* jwb
+```npm i jsonwebtoken ```
+

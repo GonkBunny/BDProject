@@ -1,7 +1,6 @@
+
 CREATE TABLE leilao (
 	leilaoid		 BIGINT,
-	titulo		 VARCHAR(512) UNIQUE NOT NULL,
-	descricao	 VARCHAR(512),
 	artigoid		 BIGINT NOT NULL,
 	minpreco		 DOUBLE PRECISION NOT NULL,
 	datacomeco	 TIMESTAMP NOT NULL,
@@ -39,8 +38,18 @@ CREATE TABLE mural (
 
 CREATE TABLE mensagem (
 	texto		 VARCHAR(512) NOT NULL,
+	utilread		 BOOL NOT NULL,
+	notifdate	 TIMESTAMP NOT NULL,
 	utilizador_userid BIGINT,
 	PRIMARY KEY(utilizador_userid)
+);
+
+CREATE TABLE descricao_titulo (
+	descricao	 VARCHAR(512),
+	titulo		 VARCHAR(512),
+	datademudanca	 TIMESTAMP,
+	leilao_leilaoid BIGINT,
+	PRIMARY KEY(leilao_leilaoid)
 );
 
 ALTER TABLE leilao ADD CONSTRAINT leilao_fk1 FOREIGN KEY (utilizador_userid) REFERENCES utilizador(userid);
@@ -50,3 +59,5 @@ ALTER TABLE licitacao ADD CONSTRAINT licitacao_fk2 FOREIGN KEY (leilao_leilaoid)
 ALTER TABLE mural ADD CONSTRAINT mural_fk1 FOREIGN KEY (leilao_leilaoid) REFERENCES leilao(leilaoid);
 ALTER TABLE mural ADD CONSTRAINT mural_fk2 FOREIGN KEY (utilizador_userid) REFERENCES utilizador(userid);
 ALTER TABLE mensagem ADD CONSTRAINT mensagem_fk1 FOREIGN KEY (utilizador_userid) REFERENCES utilizador(userid);
+ALTER TABLE descricao_titulo ADD CONSTRAINT descricao_titulo_fk1 FOREIGN KEY (leilao_leilaoid) REFERENCES leilao(leilaoid);
+
