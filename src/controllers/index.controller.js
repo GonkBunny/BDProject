@@ -164,13 +164,59 @@ const criarLeilao = async (req, res) => {
 }
 
 const makeLicitation = async (req, res) =>{
-      const leilaoid = BigInt(req.params.leilaoId);
-      const licitacao = Number(req.params.licitacao);
-      req.userid = verifyJWT(req,res);
-      const date = new Date();
+      try{
+            const leilaoid = BigInt(req.params.leilaoId);
+            const licitacao = Number(req.params.licitacao);
+            req.userid = verifyJWT(req,res);
+            const date = new Date();
             
-      if(req.userid>=0){
+            if(req.userid>=0){
+                  
+                  await pool.query("Begin Transaction;");
+                  const success = await pool.query('Select leilaoid,minpreco,datacomeco,datafim FROM leilao WHERE leilaoid = $1',[leilaoid]);
+                  
+                  
+                        //if(success.rows.datacomeco < date || date > success.rows.datafim){
+                              console.log(success.rows[0].minpreco)
+                              const success2 = await pool.query('Select * from licitacao WHERE utilizador_userid = $1', [req.userid]);
+                              
+                              
+                              if(success.rows[0].minpreco < licitacao){
+                                    if(Number(success2.rowCount) > 0){
+                                          
+                                          await pool.query('UPDATE licitacao SET datadalicitacao = $1,precodelicitacao = $2 WHERE utilizador_userid = $3;',[date,licitacao,req.userid]);
+                                          
+                                          await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[licitacao,leilaoid])
+                                          
+                                          await pool.query('Commit;')
+                                          
+                                    }else{
+                                          await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid) VALUES ($1,$2,$3,$4);',[date,licitacao,req.userid,leilaoid]);
+                                          await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[licitacao,leilaoid])
+                                          await pool.query('Commit;')
+                                          
+                                    }
+                                    return res.json({success:"Licitação aconteceu"});
+                              }else{
+                                    await pool.query('Rollback;');
+                                    return res.json({erro:"A licitação tem de ser maior"});
+                              }
+                        /*}else{
+                              await pool.query('Rollback;');
+                              return res.json({erro:"Fora da altura"});
+                        }*/
+                  
+                  
+            }else if(req.userid == -1){
+                  return res.json({auth: false, message: 'No token provided.'})
+            }else if(req.userid == -2){
+                  return res.json({auth: false, message: 'Failed to authenticate token.'})
+            }
+      }catch(err){
+            await pool.query('Rollback;');
+            return res.json({erro:err});
       }
+      return res.json({erro:"Something"});
 
 }
 
@@ -229,5 +275,6 @@ module.exports ={
       criarLeilao,
       getLeiloesByKeyword,
       updateLeilao,
+      makeLicitation,
       getLeilaoByID
 }
