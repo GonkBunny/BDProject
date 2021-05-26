@@ -32,6 +32,11 @@ function verifyJWT(req,res){
       return value;
 }
 
+function scheduleLeilao(time,leilaoid){
+      schedule.scheduleJob(date,async function () {
+            //preciso de fazer a mensagem
+      })
+}
 
 
 
