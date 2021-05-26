@@ -33,5 +33,5 @@ req:
 }
 res:
 {
-      todas as mensagens
+      todas as mensagens sort por data
 }

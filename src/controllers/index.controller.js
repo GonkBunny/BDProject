@@ -2,7 +2,7 @@ const {Pool} = require("pg");
 const {v4: uuidv4} = require("uuid");
 require("dotenv-safe").config();
 const jwt = require('jsonwebtoken');
-
+const schedule = require('node-schedule');
 
 const poolConfig = {
       user: 'postgres',
@@ -31,6 +31,9 @@ function verifyJWT(req,res){
       });
       return value;
 }
+
+
+
 
 const getLeiloes = async (req,res)=>{
       //Ver autenticação se está logged in
@@ -176,7 +179,7 @@ const makeLicitation = async (req, res) =>{
                   const success = await pool.query('Select leilaoid,minpreco,datacomeco,datafim FROM leilao WHERE leilaoid = $1',[leilaoid]);
                   
                   
-                        //if(success.rows.datacomeco < date || date > success.rows.datafim){
+                        if(success.rows[0].datacomeco < date || date > success.rows[0].datafim){
                               console.log(success.rows[0].minpreco)
                               const success2 = await pool.query('Select * from licitacao WHERE utilizador_userid = $1', [req.userid]);
                               
@@ -186,37 +189,38 @@ const makeLicitation = async (req, res) =>{
                                           
                                           await pool.query('UPDATE licitacao SET datadalicitacao = $1,precodelicitacao = $2 WHERE utilizador_userid = $3;',[date,licitacao,req.userid]);
                                           
-                                          await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[licitacao,leilaoid])
+                                          await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[licitacao,leilaoid]);
                                           
-                                          await pool.query('Commit;')
+                                          await pool.query('Commit;');
                                           
                                     }else{
                                           await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid) VALUES ($1,$2,$3,$4);',[date,licitacao,req.userid,leilaoid]);
-                                          await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[licitacao,leilaoid])
-                                          await pool.query('Commit;')
+                                          await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[licitacao,leilaoid]);
+                                          await pool.query('Commit;');
                                           
                                     }
+                                    // Mandar mensagem a todos os users que foram ultrapassados
                                     return res.json({success:"Licitação aconteceu"});
                               }else{
                                     await pool.query('Rollback;');
                                     return res.json({erro:"A licitação tem de ser maior"});
                               }
-                        /*}else{
+                        }else{
                               await pool.query('Rollback;');
                               return res.json({erro:"Fora da altura"});
-                        }*/
+                        }
                   
                   
             }else if(req.userid == -1){
-                  return res.json({auth: false, message: 'No token provided.'})
+                  return res.json({auth: false, message: 'No token provided.'});
             }else if(req.userid == -2){
-                  return res.json({auth: false, message: 'Failed to authenticate token.'})
+                  return res.json({auth: false, message: 'Failed to authenticate token.'});
             }
       }catch(err){
             await pool.query('Rollback;');
             return res.json({erro:err});
       }
-      return res.json({erro:"Something"});
+      return res.json({erro:"Not valid user. Login Again"});
 
 }
 
@@ -246,8 +250,44 @@ const getLeiloesByKeyword = async (req,res) =>{
 
 //acabar
 const updateLeilao = async (req,res) =>{
-      return res.send(req.params);
+      const timeStamp = new Date();
+      try {
+            const leilaoid = BigInt(req.params.leilaoId);
+            const {titulo,descricao} = req.body;
+            req.userid = verifyJWT(req,res);
+            if(req.userid>=0){
+                  await pool.query("Begin Transaction")
+                  const resp =await pool.query('SELECT utilizador_userid FROM leilao WHERE leilao.leilaoid =  $1',[leilaoid]);
+                  if(resp.rows[0].utilizador_userid == BigInt(req.userid)){
+                        await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid) VALUES ($1,$2,$3,$4);',[descricao,titulo,timeStamp,req.userid]);
+                        await pool.query('Commit;')
+                        return res.json({leilaoId:leilaoid});
+                  }
+                  return res.json({erro:"Not the vendor"});
+                  
+            }else if(req.userid == -1){
+                  return res.json({auth: false, message: 'No token provided.'});
+            }else if(req.userid == -2){
+                  return res.json({auth: false, message: 'Failed to authenticate token.'});
+            }
+      }catch(err){
+            await pool.query('Rollback;');
+            return res.json({erro:err});
+      }
+
 }
+
+
+
+
+
+const schedule = async (req, res, id) =>{
+      const sucess = await pool.query('SELECT datafim FROM leilao WHERE leilaoid = $1;',[id]);
+      if(sucess.rows[0].datafim > new Date()){
+            const s1 = await pool.query('UPDATE ')
+      }
+}
+
 
 //acabar 
 const getStatistic = async (req, res)=>{
@@ -258,6 +298,8 @@ const getStatistic = async (req, res)=>{
                   const user = await pool.query('SELECT admin FROM utilizador WHERE userid=$1',[req.userid]);
                   if(user.rows[0].admin){
                         const answer = await pool.query('SELECT ')
+                  }else{
+                        return res.json({auth:false, message: 'You are not admin'});
                   }
             }else if(req.userid == -1){
                   return res.json({auth: false, message: 'No token provided.'})
