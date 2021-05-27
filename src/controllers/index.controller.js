@@ -303,6 +303,8 @@ const banUser = async (req, res) => {
                         await pool.query('Begin Transaction;');
                         await pool.query('UPDATE utilizador SET blocked = $1 WHERE username = $2',[true, userToBan]);
                         await pool.query('Commit;');
+
+                        // todos os leiloes pertencentes ao user banido, notificamos todos os que que licitaram no leilao do seu cancelamento
                         const leiloes = await pool.query('SELECT leilao.leilaoid FROM leilao WHERE utilizador_userid=$1',[userToBan]);
                         leiloes.forEach(l => {
                               const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitação WHERE licitacao.leilaoid=$1',[l.leilaoId]);
@@ -311,8 +313,10 @@ const banUser = async (req, res) => {
                               });
                         });
 
+                        //todas as licitacoes em leiloes pelo user banido, verificamos todos os outros users que licitaram nos mesmos leiloes que o user e invalidamos os valores superiores ao do user
                         const licitacoes = await pool.query('SELECT DISTINCT leilao_leilaoid FROM licitacao WHERE utilizador_userid=$1',[userToBan]);
                         licitacoes.forEach(li => {
+                              // para cada leilao verificamos o valor licitado pelo user e atualizamos no leilao
                               var new_value;
                               await pool.query('Begin Transaction;');
                               const aux = await pool.query('SELECT licitacao.precodelicitacao FROM licitação WHERE licitacao.leilaoid=$1 AND licitacao.utilizador_userid=$2 SORT BY precodelicitacao',[li.leilao_leilaoid, userToBan]);
@@ -326,6 +330,7 @@ const banUser = async (req, res) => {
                               }
                               await pool.query('Commit;');
                               
+                              //notificar e alterar
                               const users_li = await pool.query('SELECT * FROM licitação WHERE licitacao.leilaoid=$1 ORDER BY precodelicitacao DESC',[li.leilao_leilaoid]);
                               var first= true;
                               users_li.forEach(u => {
@@ -476,5 +481,7 @@ module.exports ={
       updateLeilao,
       makeLicitation,
       getLeilaoByID,
-      insertMural
+      insertMural,
+      banUser,
+      cancelLeilao
 }
