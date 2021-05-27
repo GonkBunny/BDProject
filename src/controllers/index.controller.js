@@ -296,7 +296,7 @@ const banUser = async (req, res) => {
             const userToBan = req.params.userToBan; // not sure how to get this, this should be the id of the person to ban
             //if its not
             //const aux= await pool.query('SELECT userid FROM utilizador WHERE username=$1',[req.params.userToBan]);
-            //const userToBan = aux.userid;
+            //const userToBan = aux.rows[0].userid;
 
             if (req.userid>=0){
                   const user = await pool.query('SELECT admin FROM utilizador WHERE userid=$1',[req.userid]);
@@ -324,11 +324,11 @@ const banUser = async (req, res) => {
                               await pool.query('Begin Transaction;');
                               const aux = await pool.query('SELECT licitacao.precodelicitacao FROM licitação WHERE licitacao.leilaoid=$1 AND licitacao.utilizador_userid=$2 SORT BY precodelicitacao',[li.leilao_leilaoid, userToBan]);
                               if(li.precodelicitacao< aux[0].precodelicitacao){
-                                    new_value= aux[0];
+                                    new_value= aux.rows[0];
                                     await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[new_value.precodelicitacao,li.leilao_leilaoid]);   
                               }
                               else{
-                                    new_value= aux[1];
+                                    new_value= aux.rows[1];
                                     await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[new_value.precodelicitacao,li.leilao_leilaoid]);
                               }
                               await pool.query('Commit;');
