@@ -293,15 +293,18 @@ function notifyPerson(userid,message,date){
 const banUser = async (req, res) => {
       try {
             req.userid = verifyJWT(req,res);
-            const userToBan = req.params.userToBan; // not sure how to get this
-            
+            const userToBan = req.params.userToBan; // not sure how to get this, this should be the id of the person to ban
+            //if its not
+            //const aux= await pool.query('SELECT userid FROM utilizador WHERE username=$1',[req.params.userToBan]);
+            //const userToBan = aux.userid;
+
             if (req.userid>=0){
                   const user = await pool.query('SELECT admin FROM utilizador WHERE userid=$1',[req.userid]);
 
                   if (user.rows[0].admin){
                         // se for admin pode banir o user escolhido
                         await pool.query('Begin Transaction;');
-                        await pool.query('UPDATE utilizador SET blocked = $1 WHERE username = $2',[true, userToBan]);
+                        await pool.query('UPDATE utilizador SET blocked = $1 WHERE userid = $2',[true, userToBan]);
                         await pool.query('Commit;');
 
                         // todos os leiloes pertencentes ao user banido, notificamos todos os que que licitaram no leilao do seu cancelamento
