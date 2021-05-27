@@ -290,6 +290,107 @@ function notifyPerson(userid,message,date){
 }
 
 
+const banUser = async (req, res) => {
+      try {
+            req.userid = verifyJWT(req,res);
+            const userToBan = req.params.userToBan; // not sure how to get this
+            
+            if (req.userid>=0){
+                  const user = await pool.query('SELECT admin FROM utilizador WHERE userid=$1',[req.userid]);
+
+                  if (user.rows[0].admin){
+                        // se for admin pode banir o user escolhido
+                        await pool.query('Begin Transaction;');
+                        await pool.query('UPDATE utilizador SET blocked = $1 WHERE username = $2',[true, userToBan]);
+                        await pool.query('Commit;');
+                        const leiloes = await pool.query('SELECT leilao.leilaoid FROM leilao WHERE utilizador_userid=$1',[userToBan]);
+                        leiloes.forEach(l => {
+                              const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitação WHERE licitacao.leilaoid=$1',[l.leilaoId]);
+                              users.forEach(u => {
+                                    notifyPerson(u.utilizador_userid, "Leilao " + l.leilaoId + "cancelado, o dono do artigo foi banido.");
+                              });
+                        });
+
+                        const licitacoes = await pool.query('SELECT DISTINCT leilao_leilaoid FROM licitacao WHERE utilizador_userid=$1',[userToBan]);
+                        licitacoes.forEach(li => {
+                              var new_value;
+                              await pool.query('Begin Transaction;');
+                              const aux = await pool.query('SELECT licitacao.precodelicitacao FROM licitação WHERE licitacao.leilaoid=$1 AND licitacao.utilizador_userid=$2 SORT BY precodelicitacao',[li.leilao_leilaoid, userToBan]);
+                              if(li.precodelicitacao< aux[0].precodelicitacao){
+                                    new_value= aux[0];
+                                    await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[new_value.precodelicitacao,li.leilao_leilaoid]);   
+                              }
+                              else{
+                                    new_value= aux[1];
+                                    await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[new_value.precodelicitacao,li.leilao_leilaoid]);
+                              }
+                              await pool.query('Commit;');
+                              
+                              const users_li = await pool.query('SELECT * FROM licitação WHERE licitacao.leilaoid=$1 ORDER BY precodelicitacao DESC',[li.leilao_leilaoid]);
+                              var first= true;
+                              users_li.forEach(u => {
+                                    if(u.utilizador_userid== userToBan){
+                                          break;
+                                    }
+                                    if(first){
+                                          first=false;
+                                          await pool.query('UPDATE licitacao SET precodalicitacao = $1 WHERE (datadalicitacao=$2 AND utilizador_userid=$3 AND leilao_leilaoid=$4)',[new_value.precodelicitacao,u.datadaeleicao, u.utilizador_userid, u.leilao_leilaoid]);
+                                          notifyPerson(u.utilizador_userid, "Licitacao alterada no leilao " + li.leilao_leilaoid + ", o utilizador de uma licitacao inferior foi banido. A sua licitacao continua como a maior atualmente mas o seu novo valor é " + new_value.precodelicitacao+ ". Pedimos desculpa pelo incomodo.");
+                                    }
+                                    else notifyPerson(u.utilizador_userid, "Licitacao invalidadada no leilao " + li.leilao_leilaoid + ", o utilizador de uma licitacao inferior foi banido. A maior licitacao agora é " + new_value.precodelicitacao+ ". Pedimos desculpa pelo incomodo.");
+                              });
+                        });
+
+                        
+                  } else {
+                        return res.json({auth:false, message: 'You are not admin'});
+                  }
+            } else if (req.userid == -1){
+                  return res.json({auth: false, message: 'No token provided.'})
+            } else if (req.userid == -2){
+                  return res.json({auth: false, message: 'Failed to authenticate token.'})
+            }
+      } catch (err) {
+            await pool.query('Rollback;');
+            return res.json({erro:err});
+      }
+}
+
+const cancelLeilao = async (req,res) => {
+      try {
+            const leilaoid = BigInt(req.params.leilaoId);
+            req.userid = verifyJWT(req,res);
+
+            if (req.userid>=0) {
+                  const user = await pool.query('SELECT admin FROM utilizador WHERE userid=$1',[req.userid]);
+
+                  if (user.rows[0].admin) {
+                        // se for admin pode cancelar o leilao escolhido
+                        await pool.query('UPDATE leilao SET cancelar = $1 WHERE leilaoid = $2',[true, leilaoid]);
+                        //await pool.query('Commit;');
+
+                        const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitação WHERE licitacao.leilaoid=$1',[leilaoId]);
+                              users.forEach(u => {
+                                    notifyPerson(u.utilizador_userid, "Leilao " + l.leilaoId + "cancelado por um admin.");
+                              });
+
+                        return res.json({leilaoId:leilaoid});
+                  } else {
+                        return res.json({auth:false, message: 'You are not admin'});
+                  }
+                  
+            } else if (req.userid == -1) {
+                  return res.json({auth: false, message: 'No token provided.'});
+            } else if (req.userid == -2) {
+                  return res.json({auth: false, message: 'Failed to authenticate token.'});
+            }
+      } catch (err) {
+            await pool.query('Rollback;');
+            return res.json({erro:err});
+      }
+}
+
+
 
 
 const getLeiloesByKeyword = async (req,res) =>{
