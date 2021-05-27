@@ -3,6 +3,11 @@ const {v4: uuidv4} = require("uuid");
 require("dotenv-safe").config();
 const jwt = require('jsonwebtoken');
 const schedule = require('node-schedule');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
+
+
+
 
 const poolConfig = {
       user: 'postgres',
@@ -32,13 +37,6 @@ function verifyJWT(req,res){
       return value;
 }
 
-function scheduleLeilao(time,leilaoid){
-      schedule.scheduleJob(date,async function () {
-            //preciso de fazer a mensagem
-      })
-}
-
-
 
 const getLeiloes = async (req,res)=>{
       //Ver autenticação se está logged in
@@ -46,7 +44,6 @@ const getLeiloes = async (req,res)=>{
 
       //Buscar a nova
       try{
-            
             
             req.userid = verifyJWT(req,res);
             
@@ -58,7 +55,6 @@ const getLeiloes = async (req,res)=>{
             }else if(req.userid == -2){
                   return res.json({auth: false, message: 'Failed to authenticate token.'})
             }
-            
             
             
       }catch(err){
@@ -88,12 +84,15 @@ const createUser = async (req,res)=>{
       }else{
             adminBool = false;
       }
-      try {
-            const response = await pool.query('INSERT INTO utilizador (userid,username,email,password,admin,blocked) VALUES ($1,$2,$3,$4,$5,$6);',[max,username,email,password,adminBool,false]);
-            console.log(response);
-      } catch (error) {
-            console.log(error)     
-      }
+      bcrypt.hash(password,saltRounds,function (err, hash) {
+            try {
+                  const response = await pool.query('INSERT INTO utilizador (userid,username,email,password,admin,blocked) VALUES ($1,$2,$3,$4,$5,$6);',[max,username,email,hash,adminBool,false]);
+                  console.log(response);
+            } catch (error) {
+                  console.log(error)     
+            }    
+      })
+      
       res.send("User created");
       
 };
@@ -101,23 +100,29 @@ const createUser = async (req,res)=>{
 const Login = async (req,res)=>{
       const {username,password} = req.body;
       try {
-            const response = await pool.query('SELECT userid FROM utilizador WHERE username=$1 AND password=$2',[username,password]);
+            const response = await pool.query('SELECT userid,password FROM utilizador WHERE username=$1',[username]);
             if(response.rows){
                   const userid = response.rows[0].userid;
+                  const passwordAfter = response.rows[0].password;
+                  const match = await bcrypt.compare(password,passwordAfter);
+
+                  if(match){
                   const token = jwt.sign( { userid }, process.env.SECRET,{
                         expiresIn:500
                   } );
-                  res.json({auth: true,authToken: token});
+                        return res.json({auth: true,authToken: token});
+                  }else{
+                        return res.json({auth: false,erro: "Wrong Password"});
+                  }
             }else{
-                  res.json({erro: "AuthError"})
+                  return res.json({erro: "AuthError"})
             }
 
       } catch (error) {
-            console.log(error);  
+            return res.json({erro:error});  
       }
 
       
-      console.log("Logged In");
       
 }
 
@@ -261,11 +266,11 @@ const updateLeilao = async (req,res) =>{
             const {titulo,descricao} = req.body;
             req.userid = verifyJWT(req,res);
             if(req.userid>=0){
-                  await pool.query("Begin Transaction")
+                  await pool.query("Begin Transaction");
                   const resp =await pool.query('SELECT utilizador_userid FROM leilao WHERE leilao.leilaoid =  $1',[leilaoid]);
                   if(resp.rows[0].utilizador_userid == BigInt(req.userid)){
                         await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid) VALUES ($1,$2,$3,$4);',[descricao,titulo,timeStamp,req.userid]);
-                        await pool.query('Commit;')
+                        await pool.query('Commit;');
                         return res.json({leilaoId:leilaoid});
                   }
                   return res.json({erro:"Not the vendor"});
@@ -285,13 +290,6 @@ const updateLeilao = async (req,res) =>{
 
 
 
-
-const schedule = async (req, res, id) =>{
-      const sucess = await pool.query('SELECT datafim FROM leilao WHERE leilaoid = $1;',[id]);
-      if(sucess.rows[0].datafim > new Date()){
-            const s1 = await pool.query('UPDATE ')
-      }
-}
 
 
 //acabar 
