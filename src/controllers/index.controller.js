@@ -253,7 +253,9 @@ const insertMural = async (req, res) =>{
                         //await pool.query('Commit;') // pretty sure this isnt needed here
                         const message= "Nova mensagem no mural da eleicao "+ leilaoid;
                         const people = await pool.query('SELECT DISTINCT utilizador_userid FROM mural WHERE leilao_leilaoid = $1 AND utilizador_userid != $2',[leilaoid,req.userid]);
-                        for(var i=0; i < people.rowCount; i++) notifyPerson(people.utilizador_userid, message,date);
+                        people.forEach(element => {
+                              notifyPerson(element.utilizador_userid, message,date);
+                        });
                         return res.json({success:message});
                   } catch (error) {
                         console.log(error);
