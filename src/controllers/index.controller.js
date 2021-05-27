@@ -3,6 +3,7 @@ const {v4: uuidv4} = require("uuid");
 require("dotenv-safe").config();
 const jwt = require('jsonwebtoken');
 const schedule = require('node-schedule');
+const { notify } = require("../routes");
 
 const poolConfig = {
       user: 'postgres',
@@ -237,6 +238,54 @@ const getLeilaoByID = async (req, res)=>{
 }
 
 
+const insertMural = async (req, res) =>{
+      try{
+            const leilaoid = BigInt(req.params.leilao_leilaoid);
+            const texto = String(req.params.texto);
+            req.userid = verifyJWT(req,res);
+            
+            if(req.userid>=0){
+                  
+                  try {
+                        const date = new Date();
+                        //await pool.query('Begin Transaction;'); // pretty sure this isnt needed here
+                        await pool.query('INSERT INTO mural (texto,datetime,leilao_leilao_id,utilizador_userid) VALUES ($1,$2,$3,$4);',[texto, date, leilaoid,req.userid]);
+                        //await pool.query('Commit;') // pretty sure this isnt needed here
+                        const message= "Nova mensagem no mural da eleicao "+ leilaoid;
+                        const people = await pool.query('SELECT DISTINCT utilizador_userid FROM mural WHERE leilao_leilaoid = $1 AND utilizador_userid != $2',[leilaoid,req.userid]);
+                        for(var i=0; i < people.rowCount; i++) notifyPerson(people.utilizador_userid, message,date);
+                        return res.json({success:message});
+                  } catch (error) {
+                        console.log(error);
+                        return res.json({erro:error});
+                        
+                  }
+                  
+            }else if(req.userid == -1){
+                  return res.json({auth: false, message: 'No token provided.'})
+            }else if(req.userid == -2){
+                  return res.json({auth: false, message: 'Failed to authenticate token.'})
+            }
+
+            
+      } catch (error) {
+            console.log(error);
+            return res.json({erro:error});
+            
+      }
+      
+      
+}
+
+/* notifica o userid de uma nova mensagem no mural */
+function notifyPerson(userid,message,date){
+      try {
+            await pool.query('INSERT INTO mensagem (texto,utilread,notifdate,utilizador_userid) VALUES ($1,$2,$3,$4);',[message, false, date, userid]);
+      } catch (error) {
+            console.log(error);
+            // idk how to handle the error
+      }
+}
 
 
 
@@ -323,5 +372,6 @@ module.exports ={
       getLeiloesByKeyword,
       updateLeilao,
       makeLicitation,
-      getLeilaoByID
+      getLeilaoByID,
+      insertMural
 }
