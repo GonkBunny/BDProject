@@ -25,7 +25,8 @@ CREATE TABLE licitacao (
 	precodelicitacao	 DOUBLE PRECISION NOT NULL,
 	utilizador_userid BIGINT,
 	leilao_leilaoid	 BIGINT NOT NULL,
-	PRIMARY KEY(utilizador_userid)
+	licitacao_id  	BIGINT NOT NULL,
+	PRIMARY KEY(licitacao_id)
 );
 
 CREATE TABLE mural (
@@ -33,7 +34,8 @@ CREATE TABLE mural (
 	datetime		 TIMESTAMP NOT NULL,
 	leilao_leilaoid	 BIGINT,
 	utilizador_userid BIGINT NOT NULL,
-	PRIMARY KEY(leilao_leilaoid)
+	mural_id bigint NOT NULL,
+	PRIMARY KEY(mural_id)
 );
 
 CREATE TABLE mensagem (
@@ -41,7 +43,8 @@ CREATE TABLE mensagem (
 	utilread		 BOOL NOT NULL,
 	notifdate	 TIMESTAMP NOT NULL,
 	utilizador_userid BIGINT,
-	PRIMARY KEY(utilizador_userid)
+	mensagem_id bigint NOT NULL,
+	PRIMARY KEY(mensagem_id)
 );
 
 CREATE TABLE descricao_titulo (
@@ -49,7 +52,8 @@ CREATE TABLE descricao_titulo (
 	titulo		 VARCHAR(512),
 	datademudanca	 TIMESTAMP,
 	leilao_leilaoid BIGINT,
-	PRIMARY KEY(leilao_leilaoid)
+	descricao_titulo_id BIGINT, 
+	PRIMARY KEY(descricao_titulo_id)
 );
 
 ALTER TABLE leilao ADD CONSTRAINT leilao_fk1 FOREIGN KEY (utilizador_userid) REFERENCES utilizador(userid);
