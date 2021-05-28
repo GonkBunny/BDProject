@@ -26,6 +26,7 @@ CREATE TABLE licitacao (
 	utilizador_userid BIGINT,
 	leilao_leilaoid	 BIGINT NOT NULL,
 	licitacao_id  	BIGINT NOT NULL,
+	anulada		BOOL DEFAULT false,
 	PRIMARY KEY(licitacao_id)
 );
 

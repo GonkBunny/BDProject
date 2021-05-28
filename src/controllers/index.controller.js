@@ -104,8 +104,8 @@ const createUser = async (req,res)=>{
             try {
                   const response = await pool.query('INSERT INTO utilizador (userid,username,email,password,admin,blocked) VALUES ($1,$2,$3,$4,$5,$6);',[max,username,email,hash,adminBool,false]);
                   console.log(response);
-            } catch (error) {
-                  console.log(error)     
+            } catch (err1) {
+                  return res.json({erro: err1});  
             }    
       })
       
@@ -181,7 +181,7 @@ const criarLeilao = async (req, res) => {
                         const timeStamp = new Date();
                         await pool.query('Begin Transaction;');
                         await pool.query('INSERT INTO leilao (leilaoid,artigoid,minpreco,datacomeco,datafim,utilizador_userid,cancelar) VALUES ($1,$2,$3,$4,$5,$6,DEFAULT);',[max,artigoid,minpreco,datacomeco,datafim,req.userid]);
-                        await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid,descricao_titulo_id) VALUES ($1,$2,$3,$4);',[descricao,titulo,timeStamp,max,max2]);
+                        await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid,descricao_titulo_id) VALUES ($1,$2,$3,$4,$5);',[descricao,titulo,timeStamp,max,max2]);
                         await pool.query('Commit;');
                         scheduleNotif(max,req.userid,datacomeco,datafim);
                         return res.json({leilaoId:parseInt(max)});
@@ -240,8 +240,8 @@ const makeLicitation = async (req, res) =>{
                               
                               if(success.rows[0].minpreco < licitacao){
                               
-                                    await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid,licitacao_id) VALUES ($1,$2,$3,$4,$5);',[date,licitacao,req.userid,leilaoid,max]);
-                                    await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[licitacao,leilaoid]);
+                                    await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid,licitacao_id,anulada) VALUES ($1,$2,$3,$4,$5,DEFAULT);',[date,licitacao,req.userid,leilaoid,max]);
+                                    await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2;',[licitacao,leilaoid]);
                                     await pool.query('Commit;');
                                     
                                     
@@ -273,7 +273,7 @@ const makeLicitation = async (req, res) =>{
 const getLeilaoByID = async (req, res)=>{
       //Meter a verificação que fez login
       const number = BigInt(req.params.leilaoId);
-      const response = await pool.query('SELECT leilao.leilaoid, descricao_titulo.titulo, descricao_titulo.descricao, leilao.artigoid, leilao.datacomeco, leilao.datafim, leilao.utilizador_userid  FROM leilao,descricao_titulo WHERE descricao_titulo.leilao_leilaoid = leilao.leilaoid AND leilaoid = $1 GROUP BY descricao_titulo.leilao_leilaoid,leilao.leilaoid HAVING MAX(datademudanca)=datademudanca;',[number]);
+      const response = await pool.query('SELECT descricao_titulo.leilao_leilaoid, descricao_titulo.titulo,artigoid, descricao_titulo.descricao, leilao.datacomeco, leilao.datafim, leilao.utilizador_userid  FROM leilao,descricao_titulo WHERE descricao_titulo.leilao_leilaoid = leilao.leilaoid AND leilaoid = $1 AND datademudanca = (SELECT MAX(datademudanca) FROM descricao_titulo)',[number]);
       res.json(response.rows);
 }
 
@@ -477,16 +477,19 @@ const updateLeilao = async (req,res) =>{
                   if(resp.rows[0].utilizador_userid == BigInt(req.userid)){
                         await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid,descricao_titulo_id) VALUES ($1,$2,$3,$4,$5);',[descricao,titulo,timeStamp,leilaoid,max]);
                         await pool.query('Commit;');
-                        return res.json({LeilaoId:leilaoid});
+                        return res.json({LeilaoId:req.params.leilaoId});
                   }
                   return res.json({erro:"Not the vendor"});
                   
             }else if(req.userid == -1){
+                  
                   return res.json({auth: false, message: 'No token provided.'});
             }else if(req.userid == -2){
+                  
                   return res.json({auth: false, message: 'Failed to authenticate token.'});
             }
       }catch(err){
+            console.log(err);
             await pool.query('Rollback;');
             return res.json({erro:err});
       }
