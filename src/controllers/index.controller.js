@@ -496,6 +496,41 @@ const updateLeilao = async (req,res) =>{
 
 }
 
+const getEnvolved = async (req, res)=>{
+
+      req.userid = verifyJWT(req,res);
+            
+            if(req.userid>=0){
+                  const user= req.utilizador_userid;
+
+                  const creator = await pool.query('SELECT leilaoid FROM leilao WHERE utilizador_userid=$1',[user]);
+
+                  const licitacao= await pool.query('SELECT DISTINCT leilao_leilaoid FROM licitacao WHERE utilizador_userid=$1',[user]);
+
+                  
+
+                  var arr = [];
+                  creator.rows.forEach(async(c)=>{
+                        arr.push(c.leilaoid);
+
+                  });
+
+                  licitacao.rows.forEach(async(l)=>{
+                        arr.push(l.leilao_leilaoid);
+
+                  });
+
+                  return res.json({envolved: arr});
+                 
+
+                  
+            }else if(req.userid == -1){
+                  return res.json({auth: false, message: 'No token provided.'})
+            }else if(req.userid == -2){
+                  return res.json({auth: false, message: 'Failed to authenticate token.'})
+            }
+
+}
 
 
 
@@ -592,5 +627,6 @@ module.exports ={
       insertMural,
       banUser,
       cancelLeilao,
-      getStatistic
+      getStatistic,
+      getEnvolved
 }
