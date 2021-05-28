@@ -493,7 +493,7 @@ const getStatistic = async (req, res)=>{
                         dt.setDate( current.getDate() - 10 );
                         
                         // we are checking if there were any active the past 10 days, not checking if valid ("	número	total	de	leilões	nos	últimos	10	dias")
-                        const count_leilao = await pool.query('SELECT COUNT(*) FROM leilao WHERE datacomeco >= $1 OR  datafim >= $1 ',[dt]);
+                        const count_leilao = await pool.query('SELECT COUNT(*) FROM leilao WHERE datafim >= $1 ',[dt]);
 
                         //console.log("top leilao creators:\n");
                         var arr1=[];
