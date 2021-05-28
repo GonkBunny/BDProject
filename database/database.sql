@@ -52,7 +52,8 @@ CREATE TABLE descricao_titulo (
 	titulo		 VARCHAR(512),
 	datademudanca	 TIMESTAMP,
 	leilao_leilaoid BIGINT,
-	PRIMARY KEY(leilao_leilaoid)
+	descricao_titulo_id BIGINT, 
+	PRIMARY KEY(descricao_titulo_id)
 );
 
 ALTER TABLE leilao ADD CONSTRAINT leilao_fk1 FOREIGN KEY (utilizador_userid) REFERENCES utilizador(userid);

@@ -144,7 +144,7 @@ const Login = async (req,res)=>{
 
 const criarLeilao = async (req, res) => {
       //Por titulo
-      var max;
+      var max,max2;
       
       try {
             const {titulo,descricao,artigoid,minpreco,datacomeco,datafim} = req.body;
@@ -165,10 +165,23 @@ const criarLeilao = async (req, res) => {
                         max = BigInt(0);     
                   }
                   try {
+                        
+                  
+                        max2 = await pool.query('SELECT max(descricao_titulo_id) FROM descricao_titulo;');
+                        
+                        if(max2.rows){
+                              max2 = BigInt(max2.rows[0].max)+BigInt(1);
+                        }else{
+                              max2 = BigInt(0);
+                        }
+                  } catch (error) {
+                        max2 = BigInt(0);     
+                  }
+                  try {
                         const timeStamp = new Date();
                         await pool.query('Begin Transaction;');
                         await pool.query('INSERT INTO leilao (leilaoid,artigoid,minpreco,datacomeco,datafim,utilizador_userid,cancelar) VALUES ($1,$2,$3,$4,$5,$6,DEFAULT);',[max,artigoid,minpreco,datacomeco,datafim,req.userid]);
-                        await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid) VALUES ($1,$2,$3,$4);',[descricao,titulo,timeStamp,max]);
+                        await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid,descricao_titulo_id) VALUES ($1,$2,$3,$4);',[descricao,titulo,timeStamp,max,max2]);
                         await pool.query('Commit;');
                         scheduleNotif(max,req.userid,datacomeco,datafim);
                         return res.json({leilaoId:parseInt(max)});
@@ -199,6 +212,20 @@ const makeLicitation = async (req, res) =>{
             const licitacao = Number(req.params.licitacao);
             req.userid = verifyJWT(req,res);
             const date = new Date();
+            var max;
+            try {
+                        
+                  
+                  max = await pool.query('SELECT max(licitacao_id) FROM licitatcao;');
+                  
+                  if(max.rows){
+                        max = BigInt(max.rows[0].max)+BigInt(1);
+                  }else{
+                        max = BigInt(0);
+                  }
+            } catch (error) {
+                  max = BigInt(0);     
+            }
             
             if(req.userid>=0){
                   
@@ -208,24 +235,16 @@ const makeLicitation = async (req, res) =>{
                   
                         if(success.rows[0].datacomeco < date || date > success.rows[0].datafim){
                               console.log(success.rows[0].minpreco)
-                              const success2 = await pool.query('Select * from licitacao WHERE utilizador_userid = $1', [req.userid]);
+                              c
                               
                               
                               if(success.rows[0].minpreco < licitacao){
-                                    if(Number(success2.rowCount) > 0){
-                                          
-                                          await pool.query('UPDATE licitacao SET datadalicitacao = $1,precodelicitacao = $2 WHERE utilizador_userid = $3;',[date,licitacao,req.userid]);
-                                          
-                                          await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[licitacao,leilaoid]);
-                                          
-                                          await pool.query('Commit;');
-                                          
-                                    }else{
-                                          await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid) VALUES ($1,$2,$3,$4);',[date,licitacao,req.userid,leilaoid]);
-                                          await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[licitacao,leilaoid]);
-                                          await pool.query('Commit;');
-                                          
-                                    }
+                              
+                                    await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid,licitacao_id) VALUES ($1,$2,$3,$4,$5);',[date,licitacao,req.userid,leilaoid,max]);
+                                    await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[licitacao,leilaoid]);
+                                    await pool.query('Commit;');
+                                    
+                                    
                                     // Mandar mensagem a todos os users que foram ultrapassados
                                     return res.json({success:"Licitação aconteceu"});
                               }else{
@@ -434,7 +453,21 @@ const getLeiloesByKeyword = async (req,res) =>{
 //acabar
 const updateLeilao = async (req,res) =>{
       const timeStamp = new Date();
+      var max;
       try {
+            try {
+                        
+                  
+                  max = await pool.query('SELECT max(descricao_titulo_id) FROM descricao_titulo;');
+                  
+                  if(max.rows){
+                        max = BigInt(max.rows[0].max)+BigInt(1);
+                  }else{
+                        max = BigInt(0);
+                  }
+            } catch (error) {
+                  max = BigInt(0);     
+            }
             const leilaoid = BigInt(req.params.leilaoId);
             const {titulo,descricao} = req.body;
             req.userid = verifyJWT(req,res);
@@ -442,9 +475,9 @@ const updateLeilao = async (req,res) =>{
                   await pool.query("Begin Transaction");
                   const resp =await pool.query('SELECT utilizador_userid FROM leilao WHERE leilao.leilaoid =  $1',[leilaoid]);
                   if(resp.rows[0].utilizador_userid == BigInt(req.userid)){
-                        await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid) VALUES ($1,$2,$3,$4);',[descricao,titulo,timeStamp,req.userid]);
+                        await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid,descricao_titulo_id) VALUES ($1,$2,$3,$4,$5);',[descricao,titulo,timeStamp,leilaoid,max]);
                         await pool.query('Commit;');
-                        return res.json({leilaoId:leilaoid});
+                        return res.json({LeilaoId:leilaoid});
                   }
                   return res.json({erro:"Not the vendor"});
                   
