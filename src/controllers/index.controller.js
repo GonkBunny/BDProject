@@ -450,7 +450,7 @@ const updateLeilao = async (req,res) =>{
 
 
 
-//acabar 
+
 const getStatistic = async (req, res)=>{
 
       req.userid = verifyJWT(req,res);
@@ -458,7 +458,52 @@ const getStatistic = async (req, res)=>{
             if(req.userid>=0){
                   const user = await pool.query('SELECT admin FROM utilizador WHERE userid=$1',[req.userid]);
                   if(user.rows[0].admin){
-                        const answer = await pool.query('SELECT ')
+                        const top_leilao_creators = await pool.query('SELECT utilizador_userid, COUNT(utilizador_userid) AS count FROM leilao GROUP BY utilizador_userid ORDER BY count DESC limit 10');
+                        
+                        const current = new Date();
+                        const leiloes= await pool.query('SELECT * FROM leilao WHERE datafim <= $1 AND cancelar==0',[current]);
+                        
+                        
+
+                        var arr = [];
+                        leiloes.rows.forEach(l=>{
+                              const person = await pool.query('SELECT utilizador_userid FROM licitacao WHERE precodelicitacao==$1',[l.minpreco]);
+                              arr.push(person.rows[0].utilizador_userid);
+                        });
+
+                        var top_leilao_winners= thisisnotgood(arr); // [userid, count], .....
+
+                  
+                        var dt= new Date();
+                        dt.setDate( current.getDate() - 10 );
+                        
+                        // we are checking if there were any active the past 10 days, not checking if valid ("	número	total	de	leilões	nos	últimos	10	dias")
+                        const count_leilao = await pool.query('SELECT COUNT(*) FROM leilao WHERE datacomeco >= $1 OR  datafim >= $1 ',[dt]);
+
+                        //console.log("top leilao creators:\n");
+                        var arr1=[];
+                        top_leilao_creators.rows.forEach(c=>{
+                              const person = await pool.query('SELECT username FROM utilizador WHERE userid==$1',[c.utilizador_userid]);
+                              arr1.push([person.username, c.count]);
+                              //console.log("P: "+ person.username+ "\n");
+                        });
+
+
+                        //console.log("top leilao winners:\n");
+                        var arr2=[];
+                        top_leilao_winners.rows.forEach(c=>{
+                              const person = await pool.query('SELECT username FROM utilizador WHERE userid==$1',[c[0]]);
+                              arr2.push([person.username, c[1]]);
+                              //console.log("P: "+ person.username+ "\n");
+                        });
+                        
+                        return res.json({top_leilao_creators: arr1, top_leilao_winners: arr2, count: count_leilao});
+                        /* returns
+                        [char username, int count] // top_leilao_creators
+                        [char username, int count] // top_leilao_winners
+                        int count                  // count active leiloes in the last 10 days
+                        */
+
                   }else{
                         return res.json({auth:false, message: 'You are not admin'});
                   }
@@ -469,6 +514,19 @@ const getStatistic = async (req, res)=>{
             }
 
 }
+
+
+/* gets array of people who won, makes count, sorts it and returns top 10*/
+function thisisnotgood(arr){
+      // this is probably the worse way to do this but it should work kkkkk
+      var aux = Array.from(new Set(arr)).map(a =>
+            ({name:a, count: arr.filter(f => f === a).length}));
+      var aux2= Object.entries(aux).sort((a,b) => b[1]-a[1]);
+      return aux2.slice(0,10);
+      
+}
+
+
 
 
 module.exports ={
@@ -482,5 +540,6 @@ module.exports ={
       getLeilaoByID,
       insertMural,
       banUser,
-      cancelLeilao
+      cancelLeilao,
+      getStatistic
 }
