@@ -24,10 +24,10 @@ pool.on('error', (error) => {
 
 
 function scheduleNotif(leilaoid, criador,comeco,datafim) {
-      schedule.scheduleJob(comeco,function () {
+      schedule.scheduleJob(comeco,async () => {
             notifyPerson(criador,"Leilão "+leilaoid.toString() +" Começou", new Date());            
       });
-      schedule.scheduleJob(datafim,function () {
+      schedule.scheduleJob(datafim,async () =>{
             notifyPerson(criador,"Leilão "+leilaoid.toString() +" Acabou", new Date());
             const winner = await pool.query('SELECT licitacao.utilizador_userid FROM licitacao,leilao WHERE licitacao.leilao_leilaoid = leilao.leilaoid AND licitacao.precodelicitacao = leilao.minpreco');
             notifyPerson(winner.rows[0].utilizador_userid,`Leilao ${leilaoid} Ganhaste`, new Date());
