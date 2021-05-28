@@ -452,7 +452,7 @@ const schedule = async (req, res, id) =>{
 }
 
 
-//acabar 
+
 const getStatistic = async (req, res)=>{
 
       req.userid = verifyJWT(req,res);
@@ -482,14 +482,12 @@ const getStatistic = async (req, res)=>{
                         // we are checking if there were any active the past 10 days, not checking if valid ("	número	total	de	leilões	nos	últimos	10	dias")
                         const count_leilao = await pool.query('SELECT COUNT(*) FROM leilao WHERE datacomeco >= $1 OR  datafim >= $1 ',[dt]);
 
-                        //get usernames, idk if you want this
-
                         //console.log("top leilao creators:\n");
                         var arr1=[];
                         top_leilao_creators.rows.forEach(c=>{
                               const person = await pool.query('SELECT username FROM utilizador WHERE userid==$1',[c.utilizador_userid]);
-                              arr1.push(person.userid);
-                              console.log("P: "+ person.userid+ "\n");
+                              arr1.push([person.username, c.count]);
+                              //console.log("P: "+ person.username+ "\n");
                         });
 
 
@@ -497,12 +495,16 @@ const getStatistic = async (req, res)=>{
                         var arr2=[];
                         top_leilao_winners.rows.forEach(c=>{
                               const person = await pool.query('SELECT username FROM utilizador WHERE userid==$1',[c[0]]);
-                              arr2.push(person.userid);
-                              console.log("P: "+ person.userid+ "\n");
+                              arr2.push([person.username, c[1]]);
+                              //console.log("P: "+ person.username+ "\n");
                         });
                         
-                        
-                        // idk how to return this values
+                        return res.json({top_leilao_creators: arr1, top_leilao_winners: arr2, count: count_leilao});
+                        /* returns
+                        [char username, int count] // top_leilao_creators
+                        [char username, int count] // top_leilao_winners
+                        int count                  // count active leiloes in the last 10 days
+                        */
 
                   }else{
                         return res.json({auth:false, message: 'You are not admin'});
@@ -540,5 +542,6 @@ module.exports ={
       getLeilaoByID,
       insertMural,
       banUser,
-      cancelLeilao
+      cancelLeilao,
+      getStatistic
 }
