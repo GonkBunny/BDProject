@@ -362,8 +362,8 @@ const notifyPerson=async (userid,message,date)=>{
 const banUser = async (req, res) => {
       try {
             req.userid = verifyJWT(req,res);
-            const aux= await pool.query('SELECT userid FROM utilizador WHERE username=$1',[req.body.userToBan]);
-            const userToBan = aux.rows[0].userid;
+            const aux1= await pool.query('SELECT userid FROM utilizador WHERE username=$1',[req.body.userToBan]);
+            const userToBan = aux1.rows[0].userid;
 
             if (req.userid>=0){
                   const user = await pool.query('SELECT admin FROM utilizador WHERE userid=$1',[req.userid]);
@@ -373,23 +373,23 @@ const banUser = async (req, res) => {
                         await pool.query('Begin Transaction;');
                         await pool.query('UPDATE utilizador SET blocked = $1 WHERE userid = $2',[true, userToBan]);
                         await pool.query('Commit;');
-
+                        
                         // todos os leiloes pertencentes ao user banido, notificamos todos os que que licitaram no leilao do seu cancelamento
                         const leiloes = await pool.query('SELECT leilao.leilaoid FROM leilao WHERE utilizador_userid=$1',[userToBan]);
                         for(const l of leiloes.rows){
-                              const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitação WHERE licitacao.leilao_leilaoid=$1',[l.leilaoId]);
+                              const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitacao WHERE licitacao.leilao_leilaoid=$1',[l.leilaoId]);
                               for( const u of users.rows) {
                                     notifyPerson(u.utilizador_userid, "Leilao " + l.leilaoId + "cancelado, o dono do artigo foi banido.");
                               }
                         }
-
+                        
                         //todas as licitacoes em leiloes pelo user banido, verificamos todos os outros users que licitaram nos mesmos leiloes que o user e invalidamos os valores superiores ao do user
                         const licitacoes = await pool.query('SELECT DISTINCT leilao_leilaoid FROM licitacao WHERE utilizador_userid=$1',[userToBan]);
                         for(const li of licitacoes.rows) {
                               // para cada leilao verificamos o valor licitado pelo user e atualizamos no leilao
                               var new_value;
                               await pool.query('Begin Transaction;');
-                              const aux = await pool.query('SELECT licitacao.precodelicitacao FROM licitação WHERE licitacao.leilao_leilaoid=$1 AND licitacao.utilizador_userid=$2 SORT BY precodelicitacao',[li.leilao_leilaoid, userToBan]);
+                              const aux = await pool.query('SELECT licitacao.precodelicitacao FROM licitacao WHERE licitacao.leilao_leilaoid=$1 AND licitacao.utilizador_userid=$2 SORT BY precodelicitacao',[li.leilao_leilaoid, userToBan]);
                               if(li.precodelicitacao< aux[0].precodelicitacao){
                                     new_value= aux.rows[0];
                                     await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[new_value.precodelicitacao,li.leilao_leilaoid]);   
@@ -400,9 +400,9 @@ const banUser = async (req, res) => {
                                     await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[new_value.precodelicitacao,li.leilao_leilaoid]);
                               }
                               await pool.query('Commit;');
-                              
+                              console.log("Here");
                               //notificar e alterar
-                              const users_li = await pool.query('SELECT * FROM licitação WHERE licitacao.leilao_leilaoid=$1 ORDER BY precodelicitacao DESC',[li.leilao_leilaoid]);
+                              const users_li = await pool.query('SELECT * FROM licitacao WHERE licitacao.leilao_leilaoid=$1 ORDER BY precodelicitacao DESC',[li.leilao_leilaoid]);
                               var first= true;
                               for (const u of users_li.rows) {
                                     if(u.utilizador_userid!= userToBan){
@@ -415,7 +415,7 @@ const banUser = async (req, res) => {
                                     }
                               }
                         }
-
+                        return res.json({user:userToBan, message: 'Banido'});
                         
                   } else {
                         return res.json({auth:false, message: 'You are not admin'});
@@ -426,6 +426,7 @@ const banUser = async (req, res) => {
                   return res.json({auth: false, message: 'Failed to authenticate token.'})
             }
       } catch (err) {
+            console.log(err);
             await pool.query('Rollback;');
             return res.json({erro:err});
       }
