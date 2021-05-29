@@ -614,6 +614,24 @@ function thisisnotgood(arr){
 
 
 
+const getMensagens = async (req,res)=>{
+
+      const userid = BigInt(req.params.userId);
+      
+      try {
+            const mensagensnaolidas = await pool.query('SELECT texto, notifdate FROM mensagem WHERE utilizador_userid=$1 AND utilreal=$2;',[userid,false]);
+            const mensagenslidas = await pool.query('SELECT texto, notifdate FROM mensagem WHERE utilizador_userid=$1 AND utilreal=$2;',[userid,true]);
+            await pool.query('UPDATE mensagem SET utilread = $1 WHERE utilizador_userid = $2 AND utilread = $3;',[true, userid, false]);
+            return res.json({nonreadmessages: mensagensnaolidas, readmessages: mensagenslidas});
+            
+      } catch (err1) {
+            return res.json({erro: err1});  
+      }   
+            
+};
+
+
+
 
 module.exports ={
       createUser,
@@ -628,5 +646,6 @@ module.exports ={
       banUser,
       cancelLeilao,
       getStatistic,
-      getEnvolved
+      getEnvolved,
+      getMensagens
 }
