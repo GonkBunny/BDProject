@@ -280,8 +280,8 @@ const getLeilaoByID = async (req, res)=>{
 
 const insertMural = async (req, res) =>{
       try{
-            const leilaoid = BigInt(req.params.leilao_leilaoid);
-            const texto = String(req.params.texto);
+            const leilaoid = BigInt(req.params.leilaoId);
+            const texto = String(req.body.texto);
             req.userid = verifyJWT(req,res);
             
             if(req.userid>=0){
@@ -333,7 +333,7 @@ const notifyPerson=async (userid,message,date)=>{
 const banUser = async (req, res) => {
       try {
             req.userid = verifyJWT(req,res);
-            const aux= await pool.query('SELECT userid FROM utilizador WHERE username=$1',[req.params.userToBan]);
+            const aux= await pool.query('SELECT userid FROM utilizador WHERE username=$1',[req.body.userToBan]);
             const userToBan = aux.rows[0].userid;
 
             if (req.userid>=0){
