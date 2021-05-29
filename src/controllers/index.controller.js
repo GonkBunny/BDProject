@@ -377,7 +377,7 @@ const banUser = async (req, res) => {
                         // todos os leiloes pertencentes ao user banido, notificamos todos os que que licitaram no leilao do seu cancelamento
                         const leiloes = await pool.query('SELECT leilao.leilaoid FROM leilao WHERE utilizador_userid=$1',[userToBan]);
                         for(const l of leiloes.rows){
-                              const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitação WHERE licitacao.leilaoid=$1',[l.leilaoId]);
+                              const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitação WHERE licitacao.leilao_leilaoid=$1',[l.leilaoId]);
                               for( const u of users.rows) {
                                     notifyPerson(u.utilizador_userid, "Leilao " + l.leilaoId + "cancelado, o dono do artigo foi banido.");
                               }
@@ -444,9 +444,9 @@ const cancelLeilao = async (req,res) => {
                         await pool.query('UPDATE leilao SET cancelar = $1 WHERE leilaoid = $2',[true, leilaoid]);
                         //await pool.query('Commit;');
 
-                        const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitação WHERE licitacao.leilaoid=$1',[leilaoId]);
+                        const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitacao WHERE licitacao.leilao_leilaoid=$1',[leilaoid]);
                         for(const u of users.rows) {
-                              notifyPerson(u.utilizador_userid, "Leilao " + l.leilaoId + "cancelado por um admin.");
+                              notifyPerson(u.utilizador_userid, "Leilao " + req.params.leilaoId + "cancelado por um admin.",new Date());
                         }
 
                         return res.json({leilaoId:req.params.leilaoId});
