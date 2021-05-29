@@ -128,7 +128,7 @@ const Login = async (req,res)=>{
 
                   if(match){
                   const token = jwt.sign( { userid }, process.env.SECRET,{
-                        expiresIn:500
+                        expiresIn:1000000000
                   } );
                         return res.json({auth: true,authToken: token});
                   }else{
@@ -237,13 +237,13 @@ const makeLicitation = async (req, res) =>{
                   
                   await pool.query("Begin Transaction;");
                   const success = await pool.query('Select leilaoid,minpreco,datacomeco,datafim FROM leilao WHERE leilaoid = $1',[leilaoid]);
-                  const value = await pool.query("SELECT MAX(precodelicitacao) FROM leilao, licitacao WHERE leiaoid = $1 AND leilaoid = licitacao.leilao_leilaoid AND licitacao.anulada = false ",[leilaoid]);
+                  const value = await pool.query("SELECT MAX(licitacao.precodelicitacao) FROM leilao, licitacao WHERE leilao.leilaoid = $1 AND leilao.leilaoid = licitacao.leilao_leilaoid AND licitacao.anulada = false ",[leilaoid]);
                   
                         if(success.rows[0].datacomeco < date || date > success.rows[0].datafim){
-                              console.log(success.rows[0].minpreco );
+                              console.log(success.rows[0].minpreco && value.rows[0].precodelicitacao < licitacao);
                               
                               
-                              if(success.rows[0].minpreco < licitacao && value.rows[0].precodelicitacao < licitacao){
+                              if(success.rows[0].minpreco < licitacao ){
                                     console.log("Here");
                                     await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid,licitacao_id,anulada) VALUES ($1,$2,$3,$4,$5,DEFAULT);',[date,licitacao,req.userid,leilaoid,max]);
                                     await pool.query('Commit;');
@@ -378,7 +378,7 @@ const banUser = async (req, res) => {
                         // todos os leiloes pertencentes ao user banido, notificamos todos os que que licitaram no leilao do seu cancelamento
                         const leiloes = await pool.query('SELECT leilao.leilaoid FROM leilao WHERE utilizador_userid=$1',[userToBan]);
                         leiloes.forEach(async (l) => {
-                              const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitação WHERE licitacao.leilaoid=$1',[l.leilaoId]);
+                              const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitação WHERE licitacao.leilao_leilaoid=$1',[l.leilaoId]);
                               users.forEach(u => {
                                     notifyPerson(u.utilizador_userid, "Leilao " + l.leilaoId + "cancelado, o dono do artigo foi banido.");
                               });
@@ -390,7 +390,7 @@ const banUser = async (req, res) => {
                               // para cada leilao verificamos o valor licitado pelo user e atualizamos no leilao
                               var new_value;
                               await pool.query('Begin Transaction;');
-                              const aux = await pool.query('SELECT licitacao.precodelicitacao FROM licitação WHERE licitacao.leilaoid=$1 AND licitacao.utilizador_userid=$2 SORT BY precodelicitacao',[li.leilao_leilaoid, userToBan]);
+                              const aux = await pool.query('SELECT licitacao.precodelicitacao FROM licitação WHERE licitacao.leilao_leilaoid=$1 AND licitacao.utilizador_userid=$2 SORT BY precodelicitacao',[li.leilao_leilaoid, userToBan]);
                               if(li.precodelicitacao< aux[0].precodelicitacao){
                                     new_value= aux.rows[0];
                                     await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[new_value.precodelicitacao,li.leilao_leilaoid]);   
@@ -403,7 +403,7 @@ const banUser = async (req, res) => {
                               await pool.query('Commit;');
                               
                               //notificar e alterar
-                              const users_li = await pool.query('SELECT * FROM licitação WHERE licitacao.leilaoid=$1 ORDER BY precodelicitacao DESC',[li.leilao_leilaoid]);
+                              const users_li = await pool.query('SELECT * FROM licitação WHERE licitacao.leilao_leilaoid=$1 ORDER BY precodelicitacao DESC',[li.leilao_leilaoid]);
                               var first= true;
                               users_li.forEach(async (u) => {
                                     if(u.utilizador_userid!= userToBan){
@@ -445,12 +445,12 @@ const cancelLeilao = async (req,res) => {
                         await pool.query('UPDATE leilao SET cancelar = $1 WHERE leilaoid = $2',[true, leilaoid]);
                         //await pool.query('Commit;');
 
-                        const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitação WHERE licitacao.leilaoid=$1',[leilaoId]);
-                              users.forEach(u => {
-                                    notifyPerson(u.utilizador_userid, "Leilao " + l.leilaoId + "cancelado por um admin.");
+                        const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitacao WHERE licitacao.leilao_leilaoid=$1',[leilaoid]);
+                              users.rows.forEach(u => {
+                                    notifyPerson(u.utilizador_userid, "Leilao " + req.params.leilaoId + "cancelado por um admin.", new Date());
                               });
 
-                        return res.json({leilaoId:leilaoid});
+                        return res.json({leilaoId:req.params.leilaoId});
                   } else {
                         return res.json({auth:false, message: 'You are not admin'});
                   }
@@ -461,6 +461,7 @@ const cancelLeilao = async (req,res) => {
                   return res.json({auth: false, message: 'Failed to authenticate token.'});
             }
       } catch (err) {
+            console.log(err);
             await pool.query('Rollback;');
             return res.json({erro:err});
       }
@@ -578,13 +579,13 @@ const getStatistic = async (req, res)=>{
                         const top_leilao_creators = await pool.query('SELECT utilizador_userid, COUNT(utilizador_userid) AS count FROM leilao GROUP BY utilizador_userid ORDER BY count DESC limit 10');
                         
                         const current = new Date();
-                        const leiloes= await pool.query('SELECT * FROM leilao WHERE datafim <= $1 AND cancelar==0',[current]);
+                        const leiloes= await pool.query('SELECT * FROM leilao WHERE datafim <= $1 AND cancelar=false',[current]);
                         
                         
 
                         var arr = [];
                         leiloes.rows.forEach(async(l)=>{
-                              const person = await pool.query('SELECT utilizador_userid FROM licitacao WHERE precodelicitacao==$1',[l.minpreco]);
+                              const person = await pool.query('SELECT utilizador_userid FROM licitacao WHERE precodelicitacao=$1',[l.minpreco]);
                               arr.push(person.rows[0].utilizador_userid);
                         });
 
@@ -599,22 +600,26 @@ const getStatistic = async (req, res)=>{
 
                         //console.log("top leilao creators:\n");
                         var arr1=[];
-                        top_leilao_creators.rows.forEach(async(c)=>{
-                              const person = await pool.query('SELECT username FROM utilizador WHERE userid==$1',[c.utilizador_userid]);
-                              arr1.push([person.username, c.count]);
-                              //console.log("P: "+ person.username+ "\n");
-                        });
+                        console.log(top_leilao_creators.rows);
+                        for (const c of top_leilao_creators.rows) {
+                              const person = await pool.query('SELECT username FROM utilizador WHERE userid=$1',[c.utilizador_userid]);
+                              arr1.push([person.rows[0].username, c.count]);
+                              console.log("P: "+ person.rows[0].username+ "\n");
+                              console.log(arr1);
+                        }
+                        console.log(arr1);
 
 
                         //console.log("top leilao winners:\n");
                         var arr2=[];
-                        top_leilao_winners.rows.forEach(async(c)=>{
-                              const person = await pool.query('SELECT username FROM utilizador WHERE userid==$1',[c[0]]);
-                              arr2.push([person.username, c[1]]);
-                              //console.log("P: "+ person.username+ "\n");
-                        });
+                        if(top_leilao_winners.rows != null){
+                              for (const c of top_leilao_winners.rows) {
+                                    const person = await pool.query('SELECT username FROM utilizador WHERE userid=$1',[c[0]]);
+                                    arr2.push([person.rows[0].username, c[1]]);
+                              }
+                        }
                         
-                        return res.json({top_leilao_creators: arr1, top_leilao_winners: arr2, count: count_leilao});
+                        return res.json({top_leilao_creators: arr1, top_leilao_winners: arr2, count: count_leilao.rows});
                         /* returns
                         [char username, int count] // top_leilao_creators
                         [char username, int count] // top_leilao_winners

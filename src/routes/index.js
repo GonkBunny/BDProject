@@ -15,9 +15,9 @@ router.get('/dbproj/leilao/:leilaoId/:licitacao',makeLicitation)
 router.put('/dbproj/leilao/:leilaoId/mural', insertMural);
 //router.get('/dbproj/user', getMensagens);
 router.put('/dbproj/leilao/:leilaoId/cancel', cancelLeilao);
-router.put('dbproj/user/admin/ban', banUser);
+router.put('/dbproj/user/admin/ban', banUser);
 
-router.get('dbproj/estatisticas', getStatistic);
+router.get('/dbproj/estatisticas', getStatistic);
 
 //Vários Leilões
 
