@@ -47,8 +47,12 @@ function verifyJWT(req,res){
             if(err){
                   value = -2;
             }
+            try {
+                  value = decoded.userid;
+            } catch (error) {
+                  res.json({erro:"ReLogin"});
+            }
             
-            value = decoded.userid;
       });
       return value;
 }
@@ -216,14 +220,16 @@ const makeLicitation = async (req, res) =>{
             try {
                         
                   
-                  max = await pool.query('SELECT max(licitacao_id) FROM licitatcao;');
+                  max = await pool.query('SELECT max(licitacao_id) FROM licitacao;');
                   
                   if(max.rows){
                         max = BigInt(max.rows[0].max)+BigInt(1);
                   }else{
+                        
                         max = BigInt(0);
                   }
             } catch (error) {
+                  
                   max = BigInt(0);     
             }
             
@@ -234,18 +240,21 @@ const makeLicitation = async (req, res) =>{
                   
                   
                         if(success.rows[0].datacomeco < date || date > success.rows[0].datafim){
-                              console.log(success.rows[0].minpreco)
-                              c
+                              console.log(success.rows[0].minpreco);
                               
                               
                               if(success.rows[0].minpreco < licitacao){
-                              
+                                    console.log("Here");
                                     await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid,licitacao_id,anulada) VALUES ($1,$2,$3,$4,$5,DEFAULT);',[date,licitacao,req.userid,leilaoid,max]);
                                     await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2;',[licitacao,leilaoid]);
                                     await pool.query('Commit;');
                                     
                                     
                                     // Mandar mensagem a todos os users que foram ultrapassados
+                                    const allusers = await pool.query('Select DISTINCT licitacao.utilizador_userid FROM  leilao,licitacao WHERE leilaoid = licitacao.leilao_leilaoid AND precodelicitacao < $1 ',[licitacao]);
+                                    allusers.rows.forEach(u =>{
+                                          notifyPerson(u.utilizador_userid,`No Leilão ${leilaoid} foste ultrapassado`,new Date());
+                                    });
                                     return res.json({success:"Licitação aconteceu"});
                               }else{
                                     await pool.query('Rollback;');
@@ -263,6 +272,7 @@ const makeLicitation = async (req, res) =>{
                   return res.json({auth: false, message: 'Failed to authenticate token.'});
             }
       }catch(err){
+            console.log(err)
             await pool.query('Rollback;');
             return res.json({erro:err});
       }
@@ -295,6 +305,7 @@ const insertMural = async (req, res) =>{
                         const people = await pool.query('SELECT DISTINCT utilizador_userid FROM mural WHERE leilao_leilaoid = $1 AND utilizador_userid != $2',[leilaoid,req.userid]);
                         people.forEach(element => {
                               notifyPerson(element.utilizador_userid, message,date);
+                              
                         });
                         return res.json({success:message});
                   } catch (error) {
@@ -321,9 +332,29 @@ const insertMural = async (req, res) =>{
 
 /* notifica o userid de uma nova mensagem no mural */
 const notifyPerson=async (userid,message,date)=>{
-      try {
-            await pool.query('INSERT INTO mensagem (texto,utilread,notifdate,utilizador_userid) VALUES ($1,$2,$3,$4);',[message, false, date, userid]);
+      var max;
+      await pool.query("Begin Transaction;");
+      
+      try { 
+            await pool.query("LOCK TABLE mensagem IN ROW EXCLUSIVE MODE;")
+            max = await pool.query('SELECT max(mensagem_id) FROM mensagem;');
+            
+            if(max.rows){
+                  max = BigInt(max.rows[0].max)+BigInt(1);
+            }else{
+                  max = BigInt(0);
+            }
       } catch (error) {
+            console.log(error);
+            max = BigInt(0);     
+      }
+      try {
+            
+            await pool.query('INSERT INTO mensagem (texto,utilread,notifdate,utilizador_userid,mensagem_id) VALUES ($1,$2,$3,$4,$5);',[message, false, date, userid,max]);
+            await pool.query("Commit;");
+
+      } catch (error) {
+            await pool.query("Rollback;");
             console.log(error);
             // idk how to handle the error
       }
