@@ -29,7 +29,7 @@ function scheduleNotif(leilaoid, criador,comeco,datafim) {
       });
       schedule.scheduleJob(datafim,async () =>{
             notifyPerson(criador,"Leilão "+leilaoid.toString() +" Acabou", new Date());
-            const winner = await pool.query('SELECT licitacao.utilizador_userid FROM licitacao,leilao WHERE licitacao.leilao_leilaoid = leilao.leilaoid AND licitacao.precodelicitacao = leilao.minpreco');
+            const winner = await pool.query('SELECT licitacao.utilizador_userid FROM licitacao,leilao WHERE licitacao.leilao_leilaoid = leilao.leilaoid AND licitacao.precodelicitacao = (Select MAX(precodelicitacao) FROM licitacao,leilao WHERE licitacao.leilao_leilaoid = leilao.leilaoid)');
             notifyPerson(winner.rows[0].utilizador_userid,`Leilao ${leilaoid} Ganhaste`, new Date());
 
       });
@@ -237,16 +237,15 @@ const makeLicitation = async (req, res) =>{
                   
                   await pool.query("Begin Transaction;");
                   const success = await pool.query('Select leilaoid,minpreco,datacomeco,datafim FROM leilao WHERE leilaoid = $1',[leilaoid]);
-                  
+                  const value = await pool.query("SELECT MAX(precodelicitacao) FROM leilao, licitacao WHERE leiaoid = $1 AND leilaoid = licitacao.leilao_leilaoid AND licitacao.anulada = false ",[leilaoid]);
                   
                         if(success.rows[0].datacomeco < date || date > success.rows[0].datafim){
-                              console.log(success.rows[0].minpreco);
+                              console.log(success.rows[0].minpreco );
                               
                               
-                              if(success.rows[0].minpreco < licitacao){
+                              if(success.rows[0].minpreco < licitacao && value.rows[0].precodelicitacao < licitacao){
                                     console.log("Here");
                                     await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid,licitacao_id,anulada) VALUES ($1,$2,$3,$4,$5,DEFAULT);',[date,licitacao,req.userid,leilaoid,max]);
-                                    await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2;',[licitacao,leilaoid]);
                                     await pool.query('Commit;');
                                     
                                     
