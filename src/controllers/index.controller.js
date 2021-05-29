@@ -24,15 +24,31 @@ pool.on('error', (error) => {
 
 
 function scheduleNotif(leilaoid, criador,comeco,datafim) {
-      schedule.scheduleJob(comeco,async () => {
-            notifyPerson(criador,"Leilão "+leilaoid.toString() +" Começou", new Date());            
-      });
-      schedule.scheduleJob(datafim,async () =>{
-            notifyPerson(criador,"Leilão "+leilaoid.toString() +" Acabou", new Date());
-            const winner = await pool.query('SELECT licitacao.utilizador_userid FROM licitacao,leilao WHERE licitacao.leilao_leilaoid = leilao.leilaoid AND licitacao.precodelicitacao = (Select MAX(precodelicitacao) FROM licitacao,leilao WHERE licitacao.leilao_leilaoid = leilao.leilaoid)');
-            notifyPerson(winner.rows[0].utilizador_userid,`Leilao ${leilaoid} Ganhaste`, new Date());
+      const com = new Date(Date.parse(comeco));
+      let rule = new schedule.RecurrenceRule();
+      rule.tz = 'Europe/Lisbon'
+      rule.second = com.getSeconds();
+      rule.minute = com.getMinutes() +2;
+      rule.hour = com.getHours();
+      rule.date = com.getDate();
+      rule.month = com.getMonth() +1;
+      rule.year = com.getFullYear();
 
-      });
+      
+      schedule.scheduleJob(rule,async () => {
+            notifyPerson(criador,"Leilão "+leilaoid.toString() +" Começou", new Date());
+            console.log("Começou");            
+           
+      });/* 
+      schedule.scheduleJob(new Date(Date.parse(datafim)),async () =>{
+
+            notifyPerson(criador,"Leilão "+leilaoid.toString() +" Acabou", new Date());
+            const winner = await pool.query('SELECT licitacao.utilizador_userid FROM licitacao,leilao WHERE leilaoid = $1 AND licitacao.leilao_leilaoid = leilao.leilaoid AND licitacao.precodelicitacao = (Select MAX(precodelicitacao) FROM licitacao,leilao WHERE licitacao.leilao_leilaoid = leilao.leilaoid)',[leilaoid]);
+            notifyPerson(winner.rows[0].utilizador_userid,`Leilao ${leilaoid} Ganhaste`, new Date());
+            console.log("Acabou");
+      
+      });*/
+      
       
 }
 
@@ -533,7 +549,7 @@ const getEnvolved = async (req, res)=>{
       req.userid = verifyJWT(req,res);
             
             if(req.userid>=0){
-                  const user= req.utilizador_userid;
+                  const user= req.userid;
 
                   const creator = await pool.query('SELECT leilaoid FROM leilao WHERE utilizador_userid=$1',[user]);
 
@@ -564,7 +580,26 @@ const getEnvolved = async (req, res)=>{
 
 }
 
+const getMensagens = async (req,res)=>{
 
+      var userid = verifyJWT(req,res);
+
+      try {
+            if(userid>=0){
+                  const mensagensnaolidas = await pool.query('SELECT texto, notifdate FROM mensagem WHERE utilizador_userid=$1 AND utilread=$2;',[userid,false]);
+                  const mensagenslidas = await pool.query('SELECT texto, notifdate FROM mensagem WHERE utilizador_userid=$1 AND utilread=$2;',[userid,true]);
+                  await pool.query('UPDATE mensagem SET utilread = $1 WHERE utilizador_userid = $2 AND utilread = $3;',[true, userid, false]);
+                  return res.json({nonreadmessages: mensagensnaolidas.rows, readmessages: mensagenslidas.rows});
+            }else if(req.userid == -1){
+                  return res.json({auth: false, message: 'No token provided.'})
+            }else if(req.userid == -2){
+                  return res.json({auth: false, message: 'Failed to authenticate token.'})
+            }
+      } catch (err1) {
+            return res.json({erro: err1});
+      }
+
+};
 
 
 
@@ -664,5 +699,6 @@ module.exports ={
       banUser,
       cancelLeilao,
       getStatistic,
-      getEnvolved
+      getEnvolved,
+      getMensagens
 }
