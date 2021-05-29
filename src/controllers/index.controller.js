@@ -367,6 +367,7 @@ const banUser = async (req, res) => {
                               }
                               else{
                                     new_value= aux.rows[1];
+                                    await pool.query('UPDATE licitacao SET anulada = $1 WHERE leilao_leilaoid = $2',[true,li.leilao_leilaoid]); // not sure
                                     await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[new_value.precodelicitacao,li.leilao_leilaoid]);
                               }
                               await pool.query('Commit;');
