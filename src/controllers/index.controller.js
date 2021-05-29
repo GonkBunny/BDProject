@@ -289,8 +289,8 @@ const getLeilaoByID = async (req, res)=>{
 
 const insertMural = async (req, res) =>{
       try{
-            const leilaoid = BigInt(req.params.leilao_leilaoid);
-            const texto = String(req.params.texto);
+            const leilaoid = BigInt(req.params.leilaoId);
+            const texto = String(req.body.texto);
             req.userid = verifyJWT(req,res);
             
             if(req.userid>=0){
@@ -363,7 +363,7 @@ const notifyPerson=async (userid,message,date)=>{
 const banUser = async (req, res) => {
       try {
             req.userid = verifyJWT(req,res);
-            const aux= await pool.query('SELECT userid FROM utilizador WHERE username=$1',[req.params.userToBan]);
+            const aux= await pool.query('SELECT userid FROM utilizador WHERE username=$1',[req.body.userToBan]);
             const userToBan = aux.rows[0].userid;
 
             if (req.userid>=0){
@@ -397,6 +397,7 @@ const banUser = async (req, res) => {
                               }
                               else{
                                     new_value= aux.rows[1];
+                                    await pool.query('UPDATE licitacao SET anulada = $1 WHERE leilao_leilaoid = $2',[true,li.leilao_leilaoid]); // not sure
                                     await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[new_value.precodelicitacao,li.leilao_leilaoid]);
                               }
                               await pool.query('Commit;');
