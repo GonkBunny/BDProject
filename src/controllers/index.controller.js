@@ -24,30 +24,29 @@ pool.on('error', (error) => {
 
 
 function scheduleNotif(leilaoid, criador,comeco,datafim) {
-      const com = new Date(Date.parse(comeco));
-      let rule = new schedule.RecurrenceRule();
-      rule.tz = 'Europe/Lisbon'
-      rule.second = com.getSeconds();
-      rule.minute = com.getMinutes() +2;
-      rule.hour = com.getHours();
-      rule.date = com.getDate();
-      rule.month = com.getMonth() +1;
-      rule.year = com.getFullYear();
-
+      comeco = comeco.replace(" ","T");
+      let com = new Date(Date.parse(comeco));
       
-      schedule.scheduleJob(rule,async () => {
+      datafim = datafim.replace(" ","T");
+      let fim = new Date(Date.parse(datafim));
+      
+      
+      console.log(com)
+      
+      var j =schedule.scheduleJob( com,async () => {
+            console.log("Começou");
             notifyPerson(criador,"Leilão "+leilaoid.toString() +" Começou", new Date());
-            console.log("Começou");            
-           
-      });/* 
-      schedule.scheduleJob(new Date(Date.parse(datafim)),async () =>{
+      });
+      console.log(fim);
 
+      schedule.scheduleJob(fim,async () =>{
+            console.log("Acabou");
             notifyPerson(criador,"Leilão "+leilaoid.toString() +" Acabou", new Date());
             const winner = await pool.query('SELECT licitacao.utilizador_userid FROM licitacao,leilao WHERE leilaoid = $1 AND licitacao.leilao_leilaoid = leilao.leilaoid AND licitacao.precodelicitacao = (Select MAX(precodelicitacao) FROM licitacao,leilao WHERE licitacao.leilao_leilaoid = leilao.leilaoid)',[leilaoid]);
             notifyPerson(winner.rows[0].utilizador_userid,`Leilao ${leilaoid} Ganhaste`, new Date());
-            console.log("Acabou");
+            
       
-      });*/
+      });
       
       
 }
@@ -98,6 +97,7 @@ const getLeiloes = async (req,res)=>{
 const createUser = async (req,res)=>{
       var max;
       try {
+            await pool.query("LOCK TABLE utilizador IN ACCESS EXCLUSIVE MODE;")
             max = await pool.query('SELECT max(userid) FROM utilizador;');
             if(max.rows != null){
                   max = BigInt(max.rows[0].max);
@@ -169,7 +169,7 @@ const criarLeilao = async (req, res) => {
             if(req.userid>=0){
                   try {
                         
-                  
+                        await pool.query("LOCK TABLE leilao IN ACCESS EXCLUSIVE MODE;")
                         max = await pool.query('SELECT max(leilaoid) FROM leilao;');
                         
                         if(max.rows){
@@ -182,7 +182,7 @@ const criarLeilao = async (req, res) => {
                   }
                   try {
                         
-                  
+                        await pool.query("LOCK TABLE descricao_titulo IN ACCESS EXCLUSIVE MODE;")
                         max2 = await pool.query('SELECT max(descricao_titulo_id) FROM descricao_titulo;');
                         
                         if(max2.rows){
@@ -231,7 +231,7 @@ const makeLicitation = async (req, res) =>{
             var max;
             try {
                         
-                  
+                  await pool.query("LOCK TABLE licitacao IN ACCESS EXCLUSIVE MODE;")
                   max = await pool.query('SELECT max(licitacao_id) FROM licitacao;');
                   
                   if(max.rows){
@@ -375,6 +375,7 @@ const notifyPerson=async (userid,message,date)=>{
             console.log(error);
       }
 }
+
 
 
 const banUser = async (req, res) => {
@@ -526,7 +527,7 @@ const updateLeilao = async (req,res) =>{
       try {
             try {
                         
-                  
+                  await pool.query("LOCK TABLE descricao_titulo IN ACCESS EXCLUSIVE MODE;")
                   max = await pool.query('SELECT max(descricao_titulo_id) FROM descricao_titulo;');
                   
                   if(max.rows){
