@@ -320,14 +320,30 @@ const insertMural = async (req, res) =>{
             req.userid = verifyJWT(req,res);
             
             if(req.userid>=0){
-                  
+                  try {
+                        
+                        await pool.query("LOCK TABLE mural IN ACCESS EXCLUSIVE MODE;")
+                        max = await pool.query('SELECT max(mural_id) FROM mural;');
+                        
+                        if(max.rows != null){
+                              max = BigInt(max.rows[0].max)+BigInt(1);
+                        }else{
+                              max = BigInt(0);
+                        }
+                  } catch (error) {
+                        max = BigInt(0);     
+                  }
+
                   try {
                         const date = new Date();
-                        //await pool.query('Begin Transaction;'); // pretty sure this isnt needed here
-                        await pool.query('INSERT INTO mural (texto,datetime,leilao_leilao_id,utilizador_userid) VALUES ($1,$2,$3,$4);',[texto, date, leilaoid,req.userid]);
-                        //await pool.query('Commit;') // pretty sure this isnt needed here
+
+                        await pool.query('Begin Transaction;');
+                        await pool.query('INSERT INTO mural (texto,datetime,leilao_leilaoid,utilizador_userid, mural_id) VALUES ($1,$2,$3,$4,$5);',[texto, date, leilaoid,req.userid, max]);
+                        await pool.query('Commit;');
+
                         const message= "Nova mensagem no mural da eleicao "+ leilaoid;
                         const people = await pool.query('SELECT DISTINCT utilizador_userid FROM mural WHERE leilao_leilaoid = $1 AND utilizador_userid != $2',[leilaoid,req.userid]);
+                        
                         for(const element of people.rows){
                               notifyPerson(element.utilizador_userid, message,date);     
                         }
@@ -349,6 +365,42 @@ const insertMural = async (req, res) =>{
             console.log(error);
             return res.json({erro:error});
             
+      } 
+}
+
+const insertMural_v2 = async (texto, leilaoid, userid) =>{
+      try{
+            await pool.query('Begin Transaction;');
+            try {
+                  await pool.query("LOCK TABLE mural IN ACCESS EXCLUSIVE MODE;")
+                  max = await pool.query('SELECT max(mural_id) FROM mural;');
+                  
+                  if(max.rows != null){
+                        max = BigInt(max.rows[0].max)+BigInt(1);
+                  }else{
+                        max = BigInt(0);
+                  }
+            } catch (error) {
+                  max = BigInt(0);     
+            }
+
+            try {
+                  const date = new Date();
+
+                  await pool.query('INSERT INTO mural (texto,datetime,leilao_leilaoid,utilizador_userid, mural_id) VALUES ($1,$2,$3,$4,$5);',[texto, date, leilaoid,userid, max]);
+
+                  const message= "Nova mensagem no mural da eleicao "+ leilaoid;
+                  const people = await pool.query('SELECT DISTINCT utilizador_userid FROM mural WHERE leilao_leilaoid = $1 AND utilizador_userid != $2',[leilaoid,userid]);
+                  
+                  for(const element of people.rows){
+                        notifyPerson(element.utilizador_userid, message,date);     
+                  }
+            } catch (error) {
+                  console.log(error);
+            } 
+            await pool.query('Commit;'); 
+      } catch (error) {
+            console.log(error);
       }
       
       
@@ -363,7 +415,7 @@ const notifyPerson=async (userid,message,date)=>{
             await pool.query("LOCK TABLE mensagem IN ACCESS EXCLUSIVE MODE;")
             max = await pool.query('SELECT max(mensagem_id) FROM mensagem;');
             
-            if(max.rows != null){
+            if(max.rows){
                   max = BigInt(max.rows[0].max)+BigInt(1);
             }else{
                   max = BigInt(0);
@@ -409,16 +461,13 @@ const banUser = async (req, res) => {
                         // notificar todos os que que licitaram nesses leiloes do seu cancelamento
                         const leiloes = await pool.query('SELECT leilao.leilaoid FROM leilao WHERE utilizador_userid=$1',[userToBan]);
                         for(const l of leiloes.rows){
-                              const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitacao WHERE licitacao.leilao_leilaoid=$1',[l.leilaoId]);
-                              for( const u of users.rows) {
-                                    notifyPerson(u.utilizador_userid, "Leilao " + l.leilaoId + "cancelado, o dono do artigo foi banido.");
-                              }
+                              insertMural_v2("Leilao cancelado, o criador foi banido.", l.leilaoid, req.userid);
                         }
 
                         // buscar leiloes em que o user banido licitou
                         const leiloes_lic = await pool.query('SELECT DISTINCT leilao_leilaoid FROM licitacao WHERE utilizador_userid=$1',[userToBan]);
                         for(const li of leiloes_lic.rows) {
-                              await pool.query('Begin Transaction;');
+                              
                               // buscar todas as licitacoes de cada um desses leiloes
                               var all_lic = await pool.query('SELECT licitacao.precodelicitacao FROM licitacao WHERE licitacao.leilao_leilaoid = $1',[li.leilao_leilaoid]);
                               // licitaçao do user banido
@@ -431,11 +480,16 @@ const banUser = async (req, res) => {
                               // anular licitaçoes com valor >= a do user banido (exceto a mais alta)
                               for (const licit of all_lic.rows) {
                                     if (licit.precodelicitacao >= banned_lic_value && licit.precodelicitacao != highest_value) {
+                                          await pool.query('Begin Transaction;');
                                           await pool.query('UPDATE licitacao SET anulada=true WHERE licitacao_id IN (SELECT licitacao_id FROM licitacao WHERE licitacao.leilao_leilaoid = $1 AND precodelicitacao >= $2)',[li.leilao_leilaoid, banned_lic_value]);
+                                          await pool.query('Commit;');
                                     }
                                     // licitaçao mais alta passa a ter o valor da licitaçao banida
-                                    await pool.query('UPDATE licitacao SET precodelicitacao=$1 WHERE licitacao_id IN (SELECT licitacao_id FROM licitacao WHERE licitacao.leilao_leilaoid = $2 AND precodelicitacao = $3)',[banned_lic_value, li.leilao_leilaoid, highest_value]);
-                                    await pool.query('Commit;');
+                                    if (licit.precodelicitacao == highest_value) {
+                                          await pool.query('Begin Transaction;');
+                                          await pool.query('UPDATE licitacao SET precodelicitacao=$1, anulada = false WHERE licitacao_id IN (SELECT licitacao_id FROM licitacao WHERE licitacao.leilao_leilaoid = $2 AND precodelicitacao = $3)',[banned_lic_value, li.leilao_leilaoid, highest_value]);
+                                          await pool.query('Commit;');
+                                    }
                               }
 
                               //notificar e alterar
