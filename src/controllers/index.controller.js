@@ -79,7 +79,7 @@ const getLeiloes = async (req,res)=>{
             req.userid = verifyJWT(req,res);
             
             if(req.userid>=0){
-                  const response = await pool.query('SELECT leilao.leilaoid, descricao_titulo.titulo, descricao_titulo.descricao, leilao.artigoid, leilao.datacomeco, leilao.datafim, leilao.utilizador_userid  FROM leilao,descricao_titulo WHERE descricao_titulo.leilao_leilaoid = leilao.leilaoid GROUP BY descricao_titulo.leilao_leilaoid,leilao.leilaoid HAVING MAX(datademudanca)=datademudanca;')
+                  const response = await pool.query('select leilao.leilaoid,d1.titulo,d1.descricao, leilao.artigoid, leilao.datacomeco, leilao.datafim, leilao.utilizador_userid from leilao ,descricao_titulo d1 where leilaoid = d1.leilao_leilaoid AND datademudanca = (select max(datademudanca)  from descricao_titulo d2 where d2.leilao_leilaoid = d1.leilao_leilaoid);');
                   res.send(response.rows);
             }else if(req.userid == -1){
                   return res.json({auth: false, message: 'No token provided.'})
@@ -296,7 +296,7 @@ const getLeilaoByID = async (req, res)=>{
             
       if(req.userid>=0){
             const number = BigInt(req.params.leilaoId);
-            const response = await pool.query('SELECT descricao_titulo.leilao_leilaoid, descricao_titulo.titulo,artigoid, descricao_titulo.descricao, leilao.datacomeco, leilao.datafim, leilao.utilizador_userid  FROM leilao,descricao_titulo WHERE descricao_titulo.leilao_leilaoid = leilao.leilaoid AND leilaoid = $1 AND datademudanca = (SELECT MAX(datademudanca) FROM descricao_titulo)',[number]);
+            const response = await pool.query('SELECT d1.leilao_leilaoid, d1.titulo,artigoid, d1.descricao, leilao.datacomeco, leilao.datafim, leilao.utilizador_userid  FROM leilao,descricao_titulo d1 WHERE d1.leilao_leilaoid = leilao.leilaoid AND leilaoid = $1 AND datademudanca = (SELECT MAX(datademudanca) FROM descricao_titulo d2 WHERE d2.leilao_leilaoid = $1)',[number]);
             res.json(response.rows);
       } else if(req.userid == -1){
             return res.json({auth: false, message: 'No token provided.'});
