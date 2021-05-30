@@ -101,6 +101,7 @@ const getLeiloes = async (req,res)=>{
 const createUser = async (req,res)=>{
       var max;
       try {
+            await pool.query("LOCK TABLE utilizador IN ACCESS EXCLUSIVE MODE;")
             max = await pool.query('SELECT max(userid) FROM utilizador;');
             if(max.rows){
                   max = BigInt(max.rows[0].max);
@@ -172,7 +173,7 @@ const criarLeilao = async (req, res) => {
             if(req.userid>=0){
                   try {
                         
-                  
+                        await pool.query("LOCK TABLE leilao IN ACCESS EXCLUSIVE MODE;")
                         max = await pool.query('SELECT max(leilaoid) FROM leilao;');
                         
                         if(max.rows){
@@ -185,7 +186,7 @@ const criarLeilao = async (req, res) => {
                   }
                   try {
                         
-                  
+                        await pool.query("LOCK TABLE descricao_titulo IN ACCESS EXCLUSIVE MODE;")
                         max2 = await pool.query('SELECT max(descricao_titulo_id) FROM descricao_titulo;');
                         
                         if(max2.rows){
@@ -234,7 +235,7 @@ const makeLicitation = async (req, res) =>{
             var max;
             try {
                         
-                  
+                  await pool.query("LOCK TABLE licitacao IN ACCESS EXCLUSIVE MODE;")
                   max = await pool.query('SELECT max(licitacao_id) FROM licitacao;');
                   
                   if(max.rows){
@@ -517,7 +518,7 @@ const updateLeilao = async (req,res) =>{
       try {
             try {
                         
-                  
+                  await pool.query("LOCK TABLE descricao_titulo IN ACCESS EXCLUSIVE MODE;")
                   max = await pool.query('SELECT max(descricao_titulo_id) FROM descricao_titulo;');
                   
                   if(max.rows){
