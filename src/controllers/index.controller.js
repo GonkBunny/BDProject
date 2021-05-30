@@ -26,10 +26,10 @@ pool.on('error', (error) => {
 function scheduleNotif(leilaoid, criador,comeco,datafim) {
       comeco = comeco.replace(" ","T");
       let com = new Date(Date.parse(comeco));
-      com.setHours(com.getHours());
+      
       datafim = datafim.replace(" ","T");
       let fim = new Date(Date.parse(datafim));
-      fim.setHours(fim.getHours());
+      
       
       console.log(com)
       
@@ -372,32 +372,6 @@ const notifyPerson=async (userid,message,date)=>{
       }
 }
 
-const nofifyGroup = async (group,message,date,paramenter)=>{
-      var max;
-      await pool.query("Begin Transaction;");
-      
-      try { 
-            await pool.query("LOCK TABLE mensagem IN ROW EXCLUSIVE MODE;")
-            max = await pool.query('SELECT max(mensagem_id) FROM mensagem;');
-            
-            if(max.rows != null){
-                  max = BigInt(max.rows[0].max)+1n;
-            }else{
-                  max = BigInt(0);
-            }
-      } catch (error) {
-            console.log(error);
-            max = BigInt(0);     
-      }
-      try {
-            for(const u of group.rows){
-                  await pool.query('INSERT INTO mensagem (texto,utilread,notifdate,utilizador_userid,mensagem_id) VALUES ($1,$2,$3,$4,$5);',[message, false, date, u[paramenter],max]);
-            await pool.query("Commit;");
-            }
-      } catch (error) {
-            
-      }
-}
 
 
 const banUser = async (req, res) => {
