@@ -174,7 +174,7 @@ const criarLeilao = async (req, res) => {
                         await pool.query("LOCK TABLE leilao IN ACCESS EXCLUSIVE MODE;")
                         max = await pool.query('SELECT max(leilaoid) FROM leilao;');
                         
-                        if(max.rows){
+                        if(max.rows != null){
                               max = BigInt(max.rows[0].max)+BigInt(1);
                         }else{
                               max = BigInt(0);
@@ -533,23 +533,23 @@ const updateLeilao = async (req,res) =>{
       var max;
       req.userid = verifyJWT(req,res);
       try {
-            try {
-                  await pool.query("Begin Transaction");
-                  await pool.query("LOCK TABLE descricao_titulo IN ACCESS EXCLUSIVE MODE;")
-                  max = await pool.query('SELECT max(descricao_titulo_id) FROM descricao_titulo;');
-                  
-                  if(max.rows){
-                        max = BigInt(max.rows[0].max)+BigInt(1);
-                  }else{
-                        max = BigInt(0);
-                  }
-            } catch (error) {
-                  max = BigInt(0);     
-            }
-            const leilaoid = BigInt(req.params.leilaoId);
-            const {titulo,descricao} = req.body;
-            
+            req.userid = verifyJWT(req,res);
             if(req.userid>=0){
+                  try {
+                        await pool.query("Begin Transaction");      
+                        await pool.query("LOCK TABLE descricao_titulo IN ACCESS EXCLUSIVE MODE;")
+                        max = await pool.query('SELECT max(descricao_titulo_id) FROM descricao_titulo;');
+                        
+                        if(max.rows != null){
+                              max = BigInt(max.rows[0].max)+BigInt(1);
+                        }else{
+                              max = BigInt(0);
+                        }
+                  } catch (error) {
+                        max = BigInt(0);     
+                  }
+                  const leilaoid = BigInt(req.params.leilaoId);
+                  const {titulo,descricao} = req.body;
                   
                   const resp =await pool.query('SELECT utilizador_userid FROM leilao WHERE leilao.leilaoid =  $1',[leilaoid]);
                   if(resp.rows[0].utilizador_userid == BigInt(req.userid)){
