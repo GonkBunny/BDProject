@@ -97,6 +97,7 @@ const getLeiloes = async (req,res)=>{
 const createUser = async (req,res)=>{
       var max;
       try {
+            await pool.query("Begin Transaction;")
             await pool.query("LOCK TABLE utilizador IN ACCESS EXCLUSIVE MODE;")
             max = await pool.query('SELECT max(userid) FROM utilizador;');
             if(max.rows != null){
@@ -121,11 +122,12 @@ const createUser = async (req,res)=>{
                   const response = await pool.query('INSERT INTO utilizador (userid,username,email,password,admin,blocked) VALUES ($1,$2,$3,$4,$5,$6);',[max,username,email,hash,adminBool,false]);
                   console.log(response);
             } catch (err1) {
+                  await pool.query("Rollback;")
                   return res.json({erro: err1});  
             }    
       })
-      
-      res.send("User created");
+      await pool.query("Commit;")
+      return res.send("User created");
       
 };
 
@@ -165,7 +167,7 @@ const criarLeilao = async (req, res) => {
       try {
             const {titulo,descricao,artigoid,minpreco,datacomeco,datafim} = req.body;
             req.userid = verifyJWT(req,res);
-            
+            await pool.query('Begin Transaction;');
             if(req.userid>=0){
                   try {
                         
@@ -195,7 +197,7 @@ const criarLeilao = async (req, res) => {
                   }
                   try {
                         const timeStamp = new Date();
-                        await pool.query('Begin Transaction;');
+                        
                         await pool.query('INSERT INTO leilao (leilaoid,artigoid,minpreco,datacomeco,datafim,utilizador_userid,cancelar) VALUES ($1,$2,$3,$4,$5,$6,DEFAULT);',[max,artigoid,minpreco,datacomeco,datafim,req.userid]);
                         await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid,descricao_titulo_id) VALUES ($1,$2,$3,$4,$5);',[descricao,titulo,timeStamp,max,max2]);
                         await pool.query('Commit;');
@@ -203,17 +205,22 @@ const criarLeilao = async (req, res) => {
                         return res.json({leilaoId:parseInt(max)});
                   } catch (error) {
                         console.log(error);
+                        await pool.query('Rollback;');
                         return res.json({erro:error});
                         
                   }
                   
             }else if(req.userid == -1){
+                  await pool.query('Rollback;');
                   return res.json({auth: false, message: 'No token provided.'})
             }else if(req.userid == -2){
+                  await pool.query('Rollback;');
                   return res.json({auth: false, message: 'Failed to authenticate token.'})
             }
+
             
       } catch (error) {
+            await pool.query('Rollback;');
             console.log(error);
             return res.json({erro:error});
             
@@ -230,7 +237,7 @@ const makeLicitation = async (req, res) =>{
             const date = new Date();
             var max;
             try {
-                        
+                  await pool.query("Begin Transaction;");
                   await pool.query("LOCK TABLE licitacao IN ACCESS EXCLUSIVE MODE;")
                   max = await pool.query('SELECT max(licitacao_id) FROM licitacao;');
                   
@@ -247,7 +254,7 @@ const makeLicitation = async (req, res) =>{
             
             if(req.userid>=0){
                   
-                  await pool.query("Begin Transaction;");
+                  
                   const success = await pool.query('Select leilaoid,minpreco,datacomeco,datafim FROM leilao WHERE leilaoid = $1',[leilaoid]);
                   const value = await pool.query("SELECT MAX(licitacao.precodelicitacao) FROM leilao, licitacao WHERE leilao.leilaoid = $1 AND leilao.leilaoid = licitacao.leilao_leilaoid AND licitacao.anulada = false ",[leilaoid]);
                   
@@ -524,9 +531,10 @@ const getLeiloesByKeyword = async (req,res) =>{
 const updateLeilao = async (req,res) =>{
       const timeStamp = new Date();
       var max;
+      req.userid = verifyJWT(req,res);
       try {
             try {
-                        
+                  await pool.query("Begin Transaction");
                   await pool.query("LOCK TABLE descricao_titulo IN ACCESS EXCLUSIVE MODE;")
                   max = await pool.query('SELECT max(descricao_titulo_id) FROM descricao_titulo;');
                   
@@ -540,9 +548,9 @@ const updateLeilao = async (req,res) =>{
             }
             const leilaoid = BigInt(req.params.leilaoId);
             const {titulo,descricao} = req.body;
-            req.userid = verifyJWT(req,res);
+            
             if(req.userid>=0){
-                  await pool.query("Begin Transaction");
+                  
                   const resp =await pool.query('SELECT utilizador_userid FROM leilao WHERE leilao.leilaoid =  $1',[leilaoid]);
                   if(resp.rows[0].utilizador_userid == BigInt(req.userid)){
                         await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid,descricao_titulo_id) VALUES ($1,$2,$3,$4,$5);',[descricao,titulo,timeStamp,leilaoid,max]);
