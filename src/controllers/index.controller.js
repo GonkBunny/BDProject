@@ -533,8 +533,9 @@ const cancelLeilao = async (req,res) => {
 
                   if (user.rows[0].admin) {
                         // se for admin pode cancelar o leilao escolhido
+                        await pool.query('Begin Transaction;');
                         await pool.query('UPDATE leilao SET cancelar = $1 WHERE leilaoid = $2',[true, leilaoid]);
-                        //await pool.query('Commit;');
+                        await pool.query('Commit;');
 
                         const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitacao WHERE licitacao.leilao_leilaoid=$1',[leilaoid]);
                         for(const u of users.rows) {
