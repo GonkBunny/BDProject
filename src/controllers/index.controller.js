@@ -525,24 +525,24 @@ const updateLeilao = async (req,res) =>{
       const timeStamp = new Date();
       var max;
       try {
-            try {
-                        
-                  await pool.query("LOCK TABLE descricao_titulo IN ACCESS EXCLUSIVE MODE;")
-                  max = await pool.query('SELECT max(descricao_titulo_id) FROM descricao_titulo;');
-                  
-                  if(max.rows){
-                        max = BigInt(max.rows[0].max)+BigInt(1);
-                  }else{
-                        max = BigInt(0);
-                  }
-            } catch (error) {
-                  max = BigInt(0);     
-            }
-            const leilaoid = BigInt(req.params.leilaoId);
-            const {titulo,descricao} = req.body;
             req.userid = verifyJWT(req,res);
             if(req.userid>=0){
-                  await pool.query("Begin Transaction");
+                  try {
+                        await pool.query("Begin Transaction");      
+                        await pool.query("LOCK TABLE descricao_titulo IN ACCESS EXCLUSIVE MODE;")
+                        max = await pool.query('SELECT max(descricao_titulo_id) FROM descricao_titulo;');
+                        
+                        if(max.rows != null){
+                              max = BigInt(max.rows[0].max)+BigInt(1);
+                        }else{
+                              max = BigInt(0);
+                        }
+                  } catch (error) {
+                        max = BigInt(0);     
+                  }
+                  const leilaoid = BigInt(req.params.leilaoId);
+                  const {titulo,descricao} = req.body;
+                  
                   const resp =await pool.query('SELECT utilizador_userid FROM leilao WHERE leilao.leilaoid =  $1',[leilaoid]);
                   if(resp.rows[0].utilizador_userid == BigInt(req.userid)){
                         await pool.query('INSERT INTO  descricao_titulo (descricao,titulo,datademudanca,leilao_leilaoid,descricao_titulo_id) VALUES ($1,$2,$3,$4,$5);',[descricao,titulo,timeStamp,leilaoid,max]);
