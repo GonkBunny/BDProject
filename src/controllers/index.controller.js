@@ -24,30 +24,29 @@ pool.on('error', (error) => {
 
 
 function scheduleNotif(leilaoid, criador,comeco,datafim) {
-      const com = new Date(Date.parse(comeco));
-      let rule = new schedule.RecurrenceRule();
-      rule.tz = 'Europe/Lisbon'
-      rule.second = com.getSeconds();
-      rule.minute = com.getMinutes() +2;
-      rule.hour = com.getHours();
-      rule.date = com.getDate();
-      rule.month = com.getMonth() +1;
-      rule.year = com.getFullYear();
-
+      comeco = comeco.replace(" ","T");
+      let com = new Date(Date.parse(comeco));
+      com.setHours(com.getHours());
+      datafim = datafim.replace(" ","T");
+      let fim = new Date(Date.parse(datafim));
+      fim.setHours(fim.getHours());
       
-      schedule.scheduleJob(rule,async () => {
+      console.log(com)
+      
+      var j =schedule.scheduleJob( com,async () => {
+            console.log("Começou");
             notifyPerson(criador,"Leilão "+leilaoid.toString() +" Começou", new Date());
-            console.log("Começou");            
-           
-      });/* 
-      schedule.scheduleJob(new Date(Date.parse(datafim)),async () =>{
+      });
+      console.log(fim);
 
+      schedule.scheduleJob(fim,async () =>{
+            console.log("Acabou");
             notifyPerson(criador,"Leilão "+leilaoid.toString() +" Acabou", new Date());
             const winner = await pool.query('SELECT licitacao.utilizador_userid FROM licitacao,leilao WHERE leilaoid = $1 AND licitacao.leilao_leilaoid = leilao.leilaoid AND licitacao.precodelicitacao = (Select MAX(precodelicitacao) FROM licitacao,leilao WHERE licitacao.leilao_leilaoid = leilao.leilaoid)',[leilaoid]);
             notifyPerson(winner.rows[0].utilizador_userid,`Leilao ${leilaoid} Ganhaste`, new Date());
-            console.log("Acabou");
+            
       
-      });*/
+      });
       
       
 }
@@ -353,8 +352,8 @@ const notifyPerson=async (userid,message,date)=>{
             await pool.query("LOCK TABLE mensagem IN ROW EXCLUSIVE MODE;")
             max = await pool.query('SELECT max(mensagem_id) FROM mensagem;');
             
-            if(max.rows){
-                  max = BigInt(max.rows[0].max)+BigInt(1);
+            if(max.rows != null){
+                  max = BigInt(max.rows[0].max)+1n;
             }else{
                   max = BigInt(0);
             }
@@ -371,6 +370,33 @@ const notifyPerson=async (userid,message,date)=>{
             await pool.query("Rollback;");
             console.log(error);
             // idk how to handle the error
+      }
+}
+
+const nofifyGroup = async (group,message,date,paramenter)=>{
+      var max;
+      await pool.query("Begin Transaction;");
+      
+      try { 
+            await pool.query("LOCK TABLE mensagem IN ROW EXCLUSIVE MODE;")
+            max = await pool.query('SELECT max(mensagem_id) FROM mensagem;');
+            
+            if(max.rows != null){
+                  max = BigInt(max.rows[0].max)+1n;
+            }else{
+                  max = BigInt(0);
+            }
+      } catch (error) {
+            console.log(error);
+            max = BigInt(0);     
+      }
+      try {
+            for(const u of group.rows){
+                  await pool.query('INSERT INTO mensagem (texto,utilread,notifdate,utilizador_userid,mensagem_id) VALUES ($1,$2,$3,$4,$5);',[message, false, date, u[paramenter],max]);
+            await pool.query("Commit;");
+            }
+      } catch (error) {
+            
       }
 }
 
