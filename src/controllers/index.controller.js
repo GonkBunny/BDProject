@@ -172,7 +172,7 @@ const criarLeilao = async (req, res) => {
                   
                         max = await pool.query('SELECT max(leilaoid) FROM leilao;');
                         
-                        if(max.rows){
+                        if(max.rows != null){
                               max = BigInt(max.rows[0].max)+BigInt(1);
                         }else{
                               max = BigInt(0);
