@@ -353,7 +353,7 @@ const notifyPerson=async (userid,message,date)=>{
             await pool.query("LOCK TABLE mensagem IN ROW EXCLUSIVE MODE;")
             max = await pool.query('SELECT max(mensagem_id) FROM mensagem;');
             
-            if(max.rows){
+            if(max.rows != null){
                   max = BigInt(max.rows[0].max)+BigInt(1);
             }else{
                   max = BigInt(0);
@@ -370,7 +370,6 @@ const notifyPerson=async (userid,message,date)=>{
       } catch (error) {
             await pool.query("Rollback;");
             console.log(error);
-            // idk how to handle the error
       }
 }
 
@@ -383,14 +382,20 @@ const banUser = async (req, res) => {
 
             if (req.userid>=0){
                   const user = await pool.query('SELECT admin FROM utilizador WHERE userid=$1',[req.userid]);
-
+                  
                   if (user.rows[0].admin){
                         // se for admin pode banir o user escolhido
                         await pool.query('Begin Transaction;');
-                        await pool.query('UPDATE utilizador SET blocked = $1 WHERE userid = $2',[true, userToBan]);
+                        await pool.query('UPDATE utilizador SET blocked = true WHERE userid = $1',[userToBan]);
                         await pool.query('Commit;');
                         
-                        // todos os leiloes pertencentes ao user banido, notificamos todos os que que licitaram no leilao do seu cancelamento
+                        
+                        // cancelar leiloes criados pelo user banido
+                        await pool.query('Begin Transaction;');
+                        await pool.query('UPDATE leilao SET cancelar = true WHERE utilizador_userid = $1',[userToBan]);
+                        await pool.query('Commit;');
+
+                        // notificar todos os que que licitaram nesses leiloes do seu cancelamento
                         const leiloes = await pool.query('SELECT leilao.leilaoid FROM leilao WHERE utilizador_userid=$1',[userToBan]);
                         for(const l of leiloes.rows){
                               const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitacao WHERE licitacao.leilao_leilaoid=$1',[l.leilaoId]);
@@ -398,38 +403,50 @@ const banUser = async (req, res) => {
                                     notifyPerson(u.utilizador_userid, "Leilao " + l.leilaoId + "cancelado, o dono do artigo foi banido.");
                               }
                         }
-                        
-                        //todas as licitacoes em leiloes pelo user banido, verificamos todos os outros users que licitaram nos mesmos leiloes que o user e invalidamos os valores superiores ao do user
-                        const licitacoes = await pool.query('SELECT DISTINCT leilao_leilaoid FROM licitacao WHERE utilizador_userid=$1',[userToBan]);
-                        for(const li of licitacoes.rows) {
-                              // para cada leilao verificamos o valor licitado pelo user e atualizamos no leilao
-                              var new_value;
+
+                        // buscar leiloes em que o user banido licitou
+                        const leiloes_lic = await pool.query('SELECT DISTINCT leilao_leilaoid FROM licitacao WHERE utilizador_userid=$1',[userToBan]);
+                        for(const li of leiloes_lic.rows) {
                               await pool.query('Begin Transaction;');
-                              const aux = await pool.query('SELECT licitacao.precodelicitacao FROM licitacao WHERE licitacao.leilao_leilaoid=$1 AND licitacao.utilizador_userid=$2 SORT BY precodelicitacao',[li.leilao_leilaoid, userToBan]);
-                              if(li.precodelicitacao< aux[0].precodelicitacao){
-                                    new_value= aux.rows[0];
-                                    await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[new_value.precodelicitacao,li.leilao_leilaoid]);   
-                              }
-                              else{
-                                    new_value= aux.rows[1];
-                                    await pool.query('UPDATE licitacao SET anulada = $1 WHERE leilao_leilaoid = $2',[true,li.leilao_leilaoid]); // not sure
-                                    await pool.query('UPDATE leilao SET minpreco = $1 WHERE leilaoid = $2',[new_value.precodelicitacao,li.leilao_leilaoid]);
-                              }
-                              await pool.query('Commit;');
-                              console.log("Here");
-                              //notificar e alterar
-                              const users_li = await pool.query('SELECT * FROM licitacao WHERE licitacao.leilao_leilaoid=$1 ORDER BY precodelicitacao DESC',[li.leilao_leilaoid]);
-                              var first= true;
-                              for (const u of users_li.rows) {
-                                    if(u.utilizador_userid!= userToBan){
-                                          if(first){
-                                                first=false;
-                                                await pool.query('UPDATE licitacao SET precodalicitacao = $1 WHERE (datadalicitacao=$2 AND utilizador_userid=$3 AND leilao_leilaoid=$4)',[new_value.precodelicitacao,u.datadaeleicao, u.utilizador_userid, u.leilao_leilaoid]);
-                                                notifyPerson(u.utilizador_userid, "Licitacao alterada no leilao " + li.leilao_leilaoid + ", o utilizador de uma licitacao inferior foi banido. A sua licitacao continua como a maior atualmente mas o seu novo valor é " + new_value.precodelicitacao+ ". Pedimos desculpa pelo incomodo.");
-                                          }
-                                          else notifyPerson(u.utilizador_userid, "Licitacao invalidadada no leilao " + li.leilao_leilaoid + ", o utilizador de uma licitacao inferior foi banido. A maior licitacao agora é " + new_value.precodelicitacao+ ". Pedimos desculpa pelo incomodo.");
+                              // buscar todas as licitacoes de cada um desses leiloes
+                              var all_lic = await pool.query('SELECT licitacao.precodelicitacao FROM licitacao WHERE licitacao.leilao_leilaoid = $1',[li.leilao_leilaoid]);
+                              // licitaçao do user banido
+                              var banned_lic = await pool.query('SELECT licitacao.precodelicitacao FROM licitacao WHERE utilizador_userid=$1 AND licitacao.leilao_leilaoid = $2',[userToBan, li.leilao_leilaoid]);
+                              var banned_lic_value = banned_lic.rows[0].precodelicitacao;
+                              // licitaçao mais alta
+                              var highest = await pool.query('SELECT MAX(licitacao.precodelicitacao) AS precodelicitacao FROM licitacao WHERE licitacao.leilao_leilaoid = $1', [li.leilao_leilaoid]);
+                              var highest_value = highest.rows[0].precodelicitacao;
+
+                              // anular licitaçoes com valor >= a do user banido (exceto a mais alta)
+                              for (const licit of all_lic.rows) {
+                                    if (licit.precodelicitacao >= banned_lic_value && licit.precodelicitacao != highest_value) {
+                                          await pool.query('UPDATE licitacao SET anulada=true WHERE licitacao_id IN (SELECT licitacao_id FROM licitacao WHERE licitacao.leilao_leilaoid = $1 AND precodelicitacao >= $2)',[li.leilao_leilaoid, banned_lic_value]);
+                                          console.log("update1");
+
                                     }
+                                    // licitaçao mais alta passa a ter o valor da licitaçao banida
+                                    await pool.query('UPDATE licitacao SET precodelicitacao=$1 WHERE licitacao_id IN (SELECT licitacao_id FROM licitacao WHERE licitacao.leilao_leilaoid = $2 AND precodelicitacao = $3)',[banned_lic_value, li.leilao_leilaoid, highest_value]);
+                                    await pool.query('Commit;');
+                                    console.log("fim do commit");
+
+                                    
                               }
+
+                              //notificar e alterar
+                              const users_li = await pool.query('SELECT utilizador_userid FROM licitacao WHERE licitacao.leilao_leilaoid=$1 ORDER BY precodelicitacao DESC',[li.leilao_leilaoid]);
+                              var first= true;
+                              console.log(users_li.rows)
+                              // FIXME: notificacao id mensagem duplicado
+                              // for (const u of users_li.rows) {
+                              //       if(u.utilizador_userid != userToBan){
+                              //             // if(first){
+                              //             //       first=false;
+                              //             //       notifyPerson(u.utilizador_userid, "Licitacao alterada no leilao " + li.leilao_leilaoid + ", o utilizador de uma licitacao inferior foi banido. A sua licitacao continua como a maior atualmente mas o seu novo valor é " + banned_lic_value + ". Pedimos desculpa pelo incomodo.", new Date());
+                              //             // }
+                              //             // else 
+                              //             notifyPerson(u.utilizador_userid, "Licitacao invalidada no leilao " + li.leilao_leilaoid + ", o utilizador de uma licitacao inferior foi banido. A maior licitacao agora é " + banned_lic_value + ". Pedimos desculpa pelo incomodo.", new Date());
+                              //       }
+                              // }
                         }
                         return res.json({user:userToBan, message: 'Banido'});
                         
