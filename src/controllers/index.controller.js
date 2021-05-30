@@ -75,10 +75,6 @@ function verifyJWT(req,res){
 
 
 const getLeiloes = async (req,res)=>{
-      //Ver autenticação se está logged in
-      //Buscar todos os Leiloes ativos com o pg
-
-      //Buscar a nova
       try{
             
             req.userid = verifyJWT(req,res);
@@ -103,7 +99,7 @@ const createUser = async (req,res)=>{
       var max;
       try {
             max = await pool.query('SELECT max(userid) FROM utilizador;');
-            if(max.rows){
+            if(max.rows != null){
                   max = BigInt(max.rows[0].max);
             }else{
                   max = BigInt(0);
@@ -296,10 +292,17 @@ const makeLicitation = async (req, res) =>{
 }
 
 const getLeilaoByID = async (req, res)=>{
-      //Meter a verificação que fez login
-      const number = BigInt(req.params.leilaoId);
-      const response = await pool.query('SELECT descricao_titulo.leilao_leilaoid, descricao_titulo.titulo,artigoid, descricao_titulo.descricao, leilao.datacomeco, leilao.datafim, leilao.utilizador_userid  FROM leilao,descricao_titulo WHERE descricao_titulo.leilao_leilaoid = leilao.leilaoid AND leilaoid = $1 AND datademudanca = (SELECT MAX(datademudanca) FROM descricao_titulo)',[number]);
-      res.json(response.rows);
+      req.userid = verifyJWT(req,res);
+            
+      if(req.userid>=0){
+            const number = BigInt(req.params.leilaoId);
+            const response = await pool.query('SELECT descricao_titulo.leilao_leilaoid, descricao_titulo.titulo,artigoid, descricao_titulo.descricao, leilao.datacomeco, leilao.datafim, leilao.utilizador_userid  FROM leilao,descricao_titulo WHERE descricao_titulo.leilao_leilaoid = leilao.leilaoid AND leilaoid = $1 AND datademudanca = (SELECT MAX(datademudanca) FROM descricao_titulo)',[number]);
+            res.json(response.rows);
+      } else if(req.userid == -1){
+            return res.json({auth: false, message: 'No token provided.'});
+      } else if(req.userid == -2){
+            return res.json({auth: false, message: 'Failed to authenticate token.'});
+      }
 }
 
 
@@ -421,8 +424,6 @@ const banUser = async (req, res) => {
                               for (const licit of all_lic.rows) {
                                     if (licit.precodelicitacao >= banned_lic_value && licit.precodelicitacao != highest_value) {
                                           await pool.query('UPDATE licitacao SET anulada=true WHERE licitacao_id IN (SELECT licitacao_id FROM licitacao WHERE licitacao.leilao_leilaoid = $1 AND precodelicitacao >= $2)',[li.leilao_leilaoid, banned_lic_value]);
-                                          console.log("update1");
-
                                     }
                                     // licitaçao mais alta passa a ter o valor da licitaçao banida
                                     await pool.query('UPDATE licitacao SET precodelicitacao=$1 WHERE licitacao_id IN (SELECT licitacao_id FROM licitacao WHERE licitacao.leilao_leilaoid = $2 AND precodelicitacao = $3)',[banned_lic_value, li.leilao_leilaoid, highest_value]);
@@ -499,15 +500,23 @@ const cancelLeilao = async (req,res) => {
 
 
 const getLeiloesByKeyword = async (req,res) =>{
-      //Meter a verificação que fez login
-      req.params.keyword = req.params.keyword.split("&").join(" ");
-      var number = parseInt(req.params.keyword);
-      if(isNaN(number)){
-            number = -1;
+      req.userid = verifyJWT(req,res);
+            
+      if(req.userid>=0){
+            req.params.keyword = req.params.keyword.split("&").join(" ");
+            var number = parseInt(req.params.keyword);
+            if(isNaN(number)){
+                  number = -1;
+            }
+            number = BigInt(number)
+            const response = await pool.query('SELECT leilao.leilaoid, descricao_titulo.descricao FROM leilao, descricao_titulo WHERE leilao.leilaoid = descricao_titulo.leilao_leilaoid AND (descricao_titulo.descricao=$1 OR artigoid=$2)',[req.params.keyword,number])
+            return res.json(response.rows);
+      }else if(req.userid == -1){
+            return res.json({auth: false, message: 'No token provided.'})
+      }else if(req.userid == -2){
+            return res.json({auth: false, message: 'Failed to authenticate token.'})
       }
-      number = BigInt(number)
-      const response = await pool.query('SELECT leilao.leilaoid, descricao_titulo.descricao FROM leilao, descricao_titulo WHERE leilao.leilaoid = descricao_titulo.leilao_leilaoid AND (descricao_titulo.descricao=$1 OR artigoid=$2)',[req.params.keyword,number])
-      return res.json(response.rows);
+
 }
 
 //acabar
@@ -591,29 +600,6 @@ const getEnvolved = async (req, res)=>{
             }
 
 }
-
-const getMensagens = async (req,res)=>{
-
-      var userid = verifyJWT(req,res);
-
-      try {
-            if(userid>=0){
-                  const mensagensnaolidas = await pool.query('SELECT texto, notifdate FROM mensagem WHERE utilizador_userid=$1 AND utilread=$2;',[userid,false]);
-                  const mensagenslidas = await pool.query('SELECT texto, notifdate FROM mensagem WHERE utilizador_userid=$1 AND utilread=$2;',[userid,true]);
-                  await pool.query('UPDATE mensagem SET utilread = $1 WHERE utilizador_userid = $2 AND utilread = $3;',[true, userid, false]);
-                  return res.json({nonreadmessages: mensagensnaolidas.rows, readmessages: mensagenslidas.rows});
-            }else if(req.userid == -1){
-                  return res.json({auth: false, message: 'No token provided.'})
-            }else if(req.userid == -2){
-                  return res.json({auth: false, message: 'Failed to authenticate token.'})
-            }
-      } catch (err1) {
-            return res.json({erro: err1});
-      }
-
-};
-
-
 
 
 const getStatistic = async (req, res)=>{
