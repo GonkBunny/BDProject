@@ -350,7 +350,7 @@ const notifyPerson=async (userid,message,date)=>{
       await pool.query("Begin Transaction;");
       
       try { 
-            await pool.query("LOCK TABLE mensagem IN ROW EXCLUSIVE MODE;")
+            await pool.query("LOCK TABLE mensagem IN ACCESS EXCLUSIVE MODE;")
             max = await pool.query('SELECT max(mensagem_id) FROM mensagem;');
             
             if(max.rows != null){
@@ -427,26 +427,21 @@ const banUser = async (req, res) => {
                                     // licitaçao mais alta passa a ter o valor da licitaçao banida
                                     await pool.query('UPDATE licitacao SET precodelicitacao=$1 WHERE licitacao_id IN (SELECT licitacao_id FROM licitacao WHERE licitacao.leilao_leilaoid = $2 AND precodelicitacao = $3)',[banned_lic_value, li.leilao_leilaoid, highest_value]);
                                     await pool.query('Commit;');
-                                    console.log("fim do commit");
-
-                                    
                               }
 
                               //notificar e alterar
                               const users_li = await pool.query('SELECT utilizador_userid FROM licitacao WHERE licitacao.leilao_leilaoid=$1 ORDER BY precodelicitacao DESC',[li.leilao_leilaoid]);
                               var first= true;
-                              console.log(users_li.rows)
-                              // FIXME: notificacao id mensagem duplicado
-                              // for (const u of users_li.rows) {
-                              //       if(u.utilizador_userid != userToBan){
-                              //             // if(first){
-                              //             //       first=false;
-                              //             //       notifyPerson(u.utilizador_userid, "Licitacao alterada no leilao " + li.leilao_leilaoid + ", o utilizador de uma licitacao inferior foi banido. A sua licitacao continua como a maior atualmente mas o seu novo valor é " + banned_lic_value + ". Pedimos desculpa pelo incomodo.", new Date());
-                              //             // }
-                              //             // else 
-                              //             notifyPerson(u.utilizador_userid, "Licitacao invalidada no leilao " + li.leilao_leilaoid + ", o utilizador de uma licitacao inferior foi banido. A maior licitacao agora é " + banned_lic_value + ". Pedimos desculpa pelo incomodo.", new Date());
-                              //       }
-                              // }
+                              for (const u of users_li.rows) {
+                                    if(u.utilizador_userid != userToBan){
+                                          if(first){
+                                                first=false;
+                                                notifyPerson(u.utilizador_userid, "Licitacao alterada no leilao " + li.leilao_leilaoid + ", o utilizador de uma licitacao inferior foi banido. A sua licitacao continua como a maior atualmente mas o seu novo valor é " + banned_lic_value + ". Pedimos desculpa pelo incomodo.", new Date());
+                                          }
+                                          else notifyPerson(u.utilizador_userid, "Licitacao invalidada no leilao " + li.leilao_leilaoid + ", o utilizador de uma licitacao inferior foi banido. A maior licitacao agora é " + banned_lic_value + ". Pedimos desculpa pelo incomodo.", new Date());
+                                          
+                                    }
+                              }
                         }
                         return res.json({user:userToBan, message: 'Banido'});
                         
