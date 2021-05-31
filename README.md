@@ -1,4 +1,4 @@
-# BDProject
+# BDProject 2020/21
 
 ```
 ├───database
@@ -25,4 +25,6 @@
 * jwb
 ```npm i jsonwebtoken ```
 
-instructions/user manual: https://docs.google.com/document/d/1vdU7fYYCM6gBmq-fjM0To8B_0JaU60YOEv_RVBW85d8/edit?usp=sharing
+Ana Beatriz Marques,  2018274233
+Ana Mateus, 2018282874
+Gonçalo Coelho, 2018265127
