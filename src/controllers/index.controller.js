@@ -256,20 +256,14 @@ const makeLicitation = async (req, res) =>{
             
             if(req.userid>=0){
                   
-                  
                   const success = await pool.query('Select leilaoid,minpreco,datacomeco,datafim FROM leilao WHERE leilaoid = $1',[leilaoid]);
                   const value = await pool.query("SELECT MAX(licitacao.precodelicitacao) FROM leilao, licitacao WHERE leilao.leilaoid = $1 AND leilao.leilaoid = licitacao.leilao_leilaoid AND licitacao.anulada = false ",[leilaoid]);
                   
                         if(success.rows[0].datacomeco < date && date < success.rows[0].datafim){
-                              console.log(success.rows[0].minpreco );
-                              console.log(licitacao);
-                              console.log(value.rows[0].precodelicitacao );
                               
                               if(success.rows[0].minpreco < licitacao && (value.rows[0].precodelicitacao == undefined || value.rows[0].precodelicitacao != undefined && value.rows[0].precodelicitacao < licitacao)){
-                                    console.log("Here");
                                     await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid,licitacao_id,anulada) VALUES ($1,$2,$3,$4,$5,DEFAULT);',[date,licitacao,req.userid,leilaoid,max]);
                                     await pool.query('Commit;');
-                                    
                                     
                                     // Mandar mensagem a todos os users que foram ultrapassados
                                     const allusers = await pool.query('Select DISTINCT licitacao.utilizador_userid FROM  leilao,licitacao WHERE leilaoid = licitacao.leilao_leilaoid AND precodelicitacao < $1 ',[licitacao]);
@@ -563,8 +557,6 @@ const cancelLeilao = async (req,res) => {
 }
 
 
-
-
 const getLeiloesByKeyword = async (req,res) =>{
       req.userid = verifyJWT(req,res);
             
@@ -585,7 +577,6 @@ const getLeiloesByKeyword = async (req,res) =>{
 
 }
 
-//acabar
 const updateLeilao = async (req,res) =>{
       const timeStamp = new Date();
       var max;
@@ -687,40 +678,30 @@ const getStatistic = async (req, res)=>{
                         for( const l of leiloes.rows){
                               const person = await pool.query('SELECT licitacao.utilizador_userid FROM licitacao,leilao WHERE leilaoid = $1 AND licitacao.leilao_leilaoid = leilao.leilaoid AND licitacao.precodelicitacao = (Select MAX(precodelicitacao) FROM licitacao,leilao WHERE leilao.leilaoid = $1 AND licitacao.leilao_leilaoid = leilao.leilaoid)',[l.leilaoid]);
                               if(person.rows[0] && person.rows[0].utilizador_userid != undefined){
-                                    console.log("HERE");
                                     arr.push(person.rows[0].utilizador_userid);
                               }
                         }
                         
-                        console.log(arr);
                         var top_leilao_winners= thisisnotgood(arr); // [userid, count], .....
 
-                        console.log(top_leilao_winners);
                         var dt= new Date();
                         dt.setDate( current.getDate() - 10 );
                         
                         // we are checking if there were any active the past 10 days, not checking if valid ("	número	total	de	leilões	nos	últimos	10	dias")
                         const count_leilao = await pool.query('SELECT COUNT(*) FROM leilao WHERE datafim >= $1 AND datacomeco <= $2 ',[dt,current]);
 
-                        //console.log("top leilao creators:\n");
                         var arr1=[];
-                        console.log(top_leilao_creators.rows);
                         for (const c of top_leilao_creators.rows) {
                               const person = await pool.query('SELECT username FROM utilizador WHERE userid=$1',[c.utilizador_userid]);
                               arr1.push([person.rows[0].username, c.count]);
-                              console.log("P: "+ person.rows[0].username+ "\n");
-                              console.log(arr1);
                         }
-                        console.log(arr1);
 
 
-                        //console.log("top leilao winners:\n");
                         var arr2=[];
                         if(top_leilao_winners){
                               for (const c of top_leilao_winners) {
                                     
                                     const person = await pool.query('SELECT username FROM utilizador WHERE userid=$1',[c[1].name]);
-                                    console.log(person.rows[0]);
                                     arr2.push([person.rows[0].username, c[1].count]);
                               }
                         }
