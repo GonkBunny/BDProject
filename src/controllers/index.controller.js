@@ -685,15 +685,17 @@ const getStatistic = async (req, res)=>{
 
                         var arr = [];
                         for( const l of leiloes.rows){
-                              const person = await pool.query('SELECT utilizador_userid FROM licitacao WHERE precodelicitacao=$1',[l.minpreco]);
+                              const person = await pool.query('SELECT licitacao.utilizador_userid FROM licitacao,leilao WHERE leilaoid = $1 AND licitacao.leilao_leilaoid = leilao.leilaoid AND licitacao.precodelicitacao = (Select MAX(precodelicitacao) FROM licitacao,leilao WHERE leilao.leilaoid = $1 AND licitacao.leilao_leilaoid = leilao.leilaoid)',[l.leilaoid]);
                               if(person.rows[0] && person.rows[0].utilizador_userid != undefined){
+                                    console.log("HERE");
                                     arr.push(person.rows[0].utilizador_userid);
                               }
                         }
-
+                        
+                        console.log(arr);
                         var top_leilao_winners= thisisnotgood(arr); // [userid, count], .....
 
-                  
+                        console.log(top_leilao_winners);
                         var dt= new Date();
                         dt.setDate( current.getDate() - 10 );
                         
@@ -714,10 +716,12 @@ const getStatistic = async (req, res)=>{
 
                         //console.log("top leilao winners:\n");
                         var arr2=[];
-                        if(top_leilao_winners.rows){
-                              for (const c of top_leilao_winners.rows) {
-                                    const person = await pool.query('SELECT username FROM utilizador WHERE userid=$1',[c[0]]);
-                                    arr2.push([person.rows[0].username, c[1]]);
+                        if(top_leilao_winners){
+                              for (const c of top_leilao_winners) {
+                                    
+                                    const person = await pool.query('SELECT username FROM utilizador WHERE userid=$1',[c[1].name]);
+                                    console.log(person.rows[0]);
+                                    arr2.push([person.rows[0].username, c[1].count]);
                               }
                         }
                         
@@ -742,6 +746,7 @@ const getStatistic = async (req, res)=>{
 
 /* gets array of people who won, makes count, sorts it and returns top 10*/
 function thisisnotgood(arr){
+      
       // this is probably the worse way to do this but it should work kkkkk
       var aux = Array.from(new Set(arr)).map(a =>
             ({name:a, count: arr.filter(f => f === a).length}));

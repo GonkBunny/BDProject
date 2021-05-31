@@ -21,6 +21,7 @@ router.get('/dbproj/estatisticas', getStatistic);
 
 //Vários Leilões
 
+
 router.get('/dbproj/leiloes',getLeiloes);
 router.get('/dbproj/leiloes/:keyword',getLeiloesByKeyword);
 
