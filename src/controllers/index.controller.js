@@ -324,7 +324,7 @@ const insertMural = async (req, res) =>{
             
             if(req.userid>=0){
                   try {
-                        
+                        await pool.query('Begin Transaction;');
                         await pool.query("LOCK TABLE mural IN ACCESS EXCLUSIVE MODE;")
                         max = await pool.query('SELECT max(mural_id) FROM mural;');
                         
@@ -340,7 +340,7 @@ const insertMural = async (req, res) =>{
                   try {
                         const date = new Date();
 
-                        await pool.query('Begin Transaction;');
+                        
                         await pool.query('INSERT INTO mural (texto,datetime,leilao_leilaoid,utilizador_userid, mural_id) VALUES ($1,$2,$3,$4,$5);',[texto, date, leilaoid,req.userid, max]);
                         await pool.query('Commit;');
 
@@ -495,7 +495,7 @@ const banUser = async (req, res) => {
                                     }
                               }
 
-                              //notificar e alterar
+                              //notificar acerca de licitaçoes invalidadas ou ultrapassadas
                               const users_li = await pool.query('SELECT utilizador_userid FROM licitacao WHERE licitacao.leilao_leilaoid=$1 ORDER BY precodelicitacao DESC',[li.leilao_leilaoid]);
                               var first= true;
                               for (const u of users_li.rows) {
