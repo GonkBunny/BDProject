@@ -42,8 +42,10 @@ function scheduleNotif(leilaoid, criador,comeco,datafim) {
       schedule.scheduleJob(fim,async () =>{
             console.log("Acabou");
             notifyPerson(criador,"Leilão "+leilaoid.toString() +" Acabou", new Date());
-            const winner = await pool.query('SELECT licitacao.utilizador_userid FROM licitacao,leilao WHERE leilaoid = $1 AND licitacao.leilao_leilaoid = leilao.leilaoid AND licitacao.precodelicitacao = (Select MAX(precodelicitacao) FROM licitacao,leilao WHERE licitacao.leilao_leilaoid = leilao.leilaoid)',[leilaoid]);
-            notifyPerson(winner.rows[0].utilizador_userid,`Leilao ${leilaoid} Ganhaste`, new Date());
+            const winner = await pool.query('SELECT licitacao.utilizador_userid FROM licitacao,leilao WHERE leilaoid = $1 AND licitacao.leilao_leilaoid = leilao.leilaoid AND licitacao.precodelicitacao = (Select MAX(precodelicitacao) FROM licitacao,leilao WHERE leilao.leilaoid = $1 AND licitacao.leilao_leilaoid = leilao.leilaoid)',[leilaoid]);
+            if(winner.rows[0].utilizador_userid != undefined){
+                  notifyPerson(winner.rows[0].utilizador_userid,`Leilao ${leilaoid} Ganhaste`, new Date());
+            }
             
       
       });
@@ -258,11 +260,12 @@ const makeLicitation = async (req, res) =>{
                   const success = await pool.query('Select leilaoid,minpreco,datacomeco,datafim FROM leilao WHERE leilaoid = $1',[leilaoid]);
                   const value = await pool.query("SELECT MAX(licitacao.precodelicitacao) FROM leilao, licitacao WHERE leilao.leilaoid = $1 AND leilao.leilaoid = licitacao.leilao_leilaoid AND licitacao.anulada = false ",[leilaoid]);
                   
-                        if(success.rows[0].datacomeco < date || date > success.rows[0].datafim){
-                              console.log(success.rows[0].minpreco && value.rows[0].precodelicitacao < licitacao);
+                        if(success.rows[0].datacomeco < date && date < success.rows[0].datafim){
+                              console.log(success.rows[0].minpreco );
+                              console.log(licitacao);
+                              console.log(value.rows[0].precodelicitacao );
                               
-                              
-                              if(success.rows[0].minpreco < licitacao ){
+                              if(success.rows[0].minpreco < licitacao && (value.rows[0].precodelicitacao == undefined || value.rows[0].precodelicitacao != undefined && value.rows[0].precodelicitacao < licitacao)){
                                     console.log("Here");
                                     await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid,licitacao_id,anulada) VALUES ($1,$2,$3,$4,$5,DEFAULT);',[date,licitacao,req.userid,leilaoid,max]);
                                     await pool.query('Commit;');
@@ -694,17 +697,23 @@ function thisisnotgood(arr){
 
 const getMensagens = async (req,res)=>{
 
-      const userid = BigInt(req.params.userId);
-      
+      const userid = verifyJWT(req,res);
+      if(userid >= 0){
       try {
-            const mensagensnaolidas = await pool.query('SELECT texto, notifdate FROM mensagem WHERE utilizador_userid=$1 AND utilreal=$2;',[userid,false]);
-            const mensagenslidas = await pool.query('SELECT texto, notifdate FROM mensagem WHERE utilizador_userid=$1 AND utilreal=$2;',[userid,true]);
-            await pool.query('UPDATE mensagem SET utilread = $1 WHERE utilizador_userid = $2 AND utilread = $3;',[true, userid, false]);
-            return res.json({nonreadmessages: mensagensnaolidas, readmessages: mensagenslidas});
+            const mensagensnaolidas = await pool.query('SELECT texto, notifdate FROM mensagem WHERE utilizador_userid=$1 AND utilread=$2;',[userid,false]);
+            const mensagenslidas = await pool.query('SELECT texto, notifdate FROM mensagem WHERE utilizador_userid=$1 AND utilread=$2;',[userid,true]);
+            await pool.query('UPDATE mensagem SET utilread = $1 WHERE utilizador_userid = $2 AND mensagem.utilread = $3;',[true, userid, false]);
+            return res.json({nonreadmessages: mensagensnaolidas.rows, readmessages: mensagenslidas.rows});
             
       } catch (err1) {
             return res.json({erro: err1});  
-      }   
+      }
+      }else if(userid == -1){
+            return res.json({auth: false, message: 'No token provided.'})
+      }else if(userid == -2){
+            return res.json({auth: false, message: 'Failed to authenticate token.'})
+      }
+
             
 };
 
