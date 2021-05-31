@@ -685,8 +685,10 @@ const getStatistic = async (req, res)=>{
 
                         var arr = [];
                         for( const l of leiloes.rows){
-                              const person = await pool.query('SELECT utilizador_userid FROM licitacao WHERE precodelicitacao==$1',[l.minpreco]);
-                              arr.push(person.rows[0].utilizador_userid);
+                              const person = await pool.query('SELECT utilizador_userid FROM licitacao WHERE precodelicitacao=$1',[l.minpreco]);
+                              if(person.rows[0] && person.rows[0].utilizador_userid != undefined){
+                                    arr.push(person.rows[0].utilizador_userid);
+                              }
                         }
 
                         var top_leilao_winners= thisisnotgood(arr); // [userid, count], .....
@@ -712,7 +714,7 @@ const getStatistic = async (req, res)=>{
 
                         //console.log("top leilao winners:\n");
                         var arr2=[];
-                        if(top_leilao_winners.rows != null){
+                        if(top_leilao_winners.rows){
                               for (const c of top_leilao_winners.rows) {
                                     const person = await pool.query('SELECT username FROM utilizador WHERE userid=$1',[c[0]]);
                                     arr2.push([person.rows[0].username, c[1]]);
