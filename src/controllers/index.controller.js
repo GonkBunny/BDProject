@@ -256,10 +256,10 @@ const makeLicitation = async (req, res) =>{
             
             if(req.userid>=0){
                   
-                  const success = await pool.query('Select leilaoid,minpreco,datacomeco,datafim FROM leilao WHERE leilaoid = $1',[leilaoid]);
+                  const success = await pool.query('Select leilaoid,minpreco,datacomeco,datafim,cancelar FROM leilao WHERE leilaoid = $1',[leilaoid]);
                   const value = await pool.query("SELECT MAX(licitacao.precodelicitacao) FROM leilao, licitacao WHERE leilao.leilaoid = $1 AND leilao.leilaoid = licitacao.leilao_leilaoid AND licitacao.anulada = false ",[leilaoid]);
                   
-                        if(success.rows[0].datacomeco < date && date < success.rows[0].datafim){
+                        if(!success.rows[0].cancelar && success.rows[0].datacomeco < date && date < success.rows[0].datafim){
                               
                               if(success.rows[0].minpreco < licitacao && (value.rows[0].precodelicitacao == undefined || value.rows[0].precodelicitacao != undefined && value.rows[0].precodelicitacao < licitacao)){
                                     await pool.query('INSERT INTO licitacao (datadalicitacao, precodelicitacao,utilizador_userid,leilao_leilaoid,licitacao_id,anulada) VALUES ($1,$2,$3,$4,$5,DEFAULT);',[date,licitacao,req.userid,leilaoid,max]);
@@ -277,7 +277,7 @@ const makeLicitation = async (req, res) =>{
                               }
                         }else{
                               await pool.query('Rollback;');
-                              return res.json({erro:"Fora da altura"});
+                              return res.json({erro:"Leilao indisponivel"});
                         }
                   
                   
@@ -338,7 +338,7 @@ const insertMural = async (req, res) =>{
                         await pool.query('INSERT INTO mural (texto,datetime,leilao_leilaoid,utilizador_userid, mural_id) VALUES ($1,$2,$3,$4,$5);',[texto, date, leilaoid,req.userid, max]);
                         await pool.query('Commit;');
 
-                        const message= "Nova mensagem no mural da eleicao "+ leilaoid;
+                        const message= "Nova mensagem no mural do leilao "+ leilaoid;
                         const people = await pool.query('SELECT DISTINCT utilizador_userid FROM mural WHERE leilao_leilaoid = $1 AND utilizador_userid != $2',[leilaoid,req.userid]);
                         
                         for(const element of people.rows){
@@ -386,7 +386,7 @@ const insertMural_v2 = async (texto, leilaoid, userid) =>{
 
                   await pool.query('INSERT INTO mural (texto,datetime,leilao_leilaoid,utilizador_userid, mural_id) VALUES ($1,$2,$3,$4,$5);',[texto, date, leilaoid,userid, max]);
 
-                  const message= "Nova mensagem no mural da eleicao "+ leilaoid;
+                  const message= "Nova mensagem no mural do leilao "+ leilaoid;
                   const people = await pool.query('SELECT DISTINCT utilizador_userid FROM mural WHERE leilao_leilaoid = $1 AND utilizador_userid != $2',[leilaoid,userid]);
                   
                   for(const element of people.rows){
@@ -536,7 +536,7 @@ const cancelLeilao = async (req,res) => {
 
                         const users = await pool.query('SELECT DISTINCT licitacao.utilizador_userid FROM licitacao WHERE licitacao.leilao_leilaoid=$1',[leilaoid]);
                         for(const u of users.rows) {
-                              notifyPerson(u.utilizador_userid, "Leilao " + req.params.leilaoId + "cancelado por um admin.",new Date());
+                              notifyPerson(u.utilizador_userid, "Leilao " + req.params.leilaoId + " cancelado por um admin.",new Date());
                         }
 
                         return res.json({leilaoId:req.params.leilaoId});
