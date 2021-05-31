@@ -1,5 +1,11 @@
 # BDProject 2020/21
 
+- Ana Beatriz Marques,  2018274233
+- Ana Mateus, 2018282874
+- Gonçalo Coelho, 2018265127
+
+
+
 ```
 ├───database
 │
@@ -24,7 +30,3 @@
 ```npm i express```
 * jwb
 ```npm i jsonwebtoken ```
-
-- Ana Beatriz Marques,  2018274233
-- Ana Mateus, 2018282874
-- Gonçalo Coelho, 2018265127
